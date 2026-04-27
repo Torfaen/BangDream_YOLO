@@ -59,6 +59,9 @@ lightning_logs/
 # --- 规划中的第三方预编译（minitouch 等，用脚本下载）---
 third_party/minitouch/*
 !third_party/minitouch/.gitkeep
+*.tgz
+*.tar.gz
+*.zip
 
 # --- 日志 ---
 *.log

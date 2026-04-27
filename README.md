@@ -4,19 +4,21 @@
 
 ## 当前阶段
 
-当前对应主计划 `m0_env`：环境与可行性验证。
+当前对应主计划 `m1_capture` / `m1_minitouch`：截图与多指输入验证。
 
-本阶段只做：
+已完成：
 
 - 基础项目结构
 - 依赖清单
 - MuMu / ADB / `external_renderer_ipc.dll` 环境检查
+- `nemu_ipc` 截图封装
+- 截图 FPS 基准工具
+- `minitouch` 多指输入封装
+- 5 指点击测试工具
 
 本阶段暂不做：
 
 - YOLO 推理
-- nemu_ipc 截图主逻辑
-- minitouch 多指控制
 - 自动打歌闭环
 
 ## 环境准备
@@ -35,6 +37,32 @@ pip install -e .
 ```powershell
 python -m bangdream_yolo.tools.check_env
 ```
+
+运行截图基准：
+
+```powershell
+python -m bangdream_yolo.tools.benchmark_capture --frames 300
+```
+
+下载外置资源（例如 `minitouch`，二进制不提交到 Git）：
+
+```powershell
+python -m bangdream_yolo.tools.fetch_assets
+```
+
+工具会优先通过 ADB 读取设备 ABI，并把资源保存到约定目录；若自动读取失败，可手动指定：
+
+```powershell
+python -m bangdream_yolo.tools.fetch_assets --abi x86_64
+```
+
+运行 5 指触控测试：
+
+```powershell
+python -m bangdream_yolo.tools.test_multitouch
+```
+
+当前外置资源：`minitouch-prebuilt@1.2.0`（Apache-2.0，来源 [npm minitouch-prebuilt](https://www.npmjs.com/package/minitouch-prebuilt)，上游 [openstf/minitouch](https://github.com/openstf/minitouch)）。后续模型权重、样例素材等也会统一接入 `fetch_assets`。
 
 ## 已确认的本机默认配置
 

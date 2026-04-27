@@ -25,6 +25,8 @@ class AppConfig:
     adb_serial: str = DEFAULT_ADB_SERIAL
     screen_width: int = 1600
     screen_height: int = 900
+    minitouch_port: int = 1111
+    minitouch_remote_path: str = "/data/local/tmp/minitouch"
     log_level: str = "INFO"
 
 
@@ -38,5 +40,9 @@ def load_config() -> AppConfig:
         adb_serial=os.getenv("BANGDREAM_ADB_SERIAL", DEFAULT_ADB_SERIAL),
         screen_width=int(os.getenv("BANGDREAM_SCREEN_WIDTH", "1600")),
         screen_height=int(os.getenv("BANGDREAM_SCREEN_HEIGHT", "900")),
+        minitouch_port=int(os.getenv("BANGDREAM_MINITOUCH_PORT", "1111")),
+        minitouch_remote_path=os.getenv(
+            "BANGDREAM_MINITOUCH_REMOTE_PATH", "/data/local/tmp/minitouch"
+        ),
         log_level=os.getenv("BANGDREAM_LOG_LEVEL", "INFO"),
     )
