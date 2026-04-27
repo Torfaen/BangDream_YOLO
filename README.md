@@ -15,6 +15,7 @@
 - 截图 FPS 基准工具
 - `minitouch` 多指输入封装
 - 5 指点击测试工具
+- 几何标定工具（4 点标定，输出 `data/calibration.yml`）
 
 本阶段暂不做：
 
@@ -62,6 +63,14 @@ python -m bangdream_yolo.tools.fetch_assets --abi x86_64
 python -m bangdream_yolo.tools.test_multitouch
 ```
 
+运行几何标定：
+
+```powershell
+python -m bangdream_yolo.tools.calibrate
+```
+
+按顺序点击：判定线左端、判定线右端、远端轨道左边界、远端轨道右边界。按 `s` 保存，`r` 重置，`q` 退出。
+
 当前外置资源：`minitouch-prebuilt@1.2.0`（Apache-2.0，来源 [npm minitouch-prebuilt](https://www.npmjs.com/package/minitouch-prebuilt)，上游 [openstf/minitouch](https://github.com/openstf/minitouch)）。后续模型权重、样例素材等也会统一接入 `fetch_assets`。
 
 ## 已确认的本机默认配置
@@ -69,6 +78,7 @@ python -m bangdream_yolo.tools.test_multitouch
 - MuMu 安装根目录：`C:\Program Files\Netease\MuMu`
 - ADB serial：`127.0.0.1:16384`
 - MuMu 实例 ID：`0`
+- 推荐 MuMu 分辨率：`1280x720`
 - `external_renderer_ipc.dll` 实测路径：`C:\Program Files\Netease\MuMu\nx_device\12.0\shell\sdk\external_renderer_ipc.dll`
 
 ## 风险声明

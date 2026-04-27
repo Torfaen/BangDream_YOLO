@@ -1,0 +1,23 @@
+version: 1
+capture:
+  width: 1280
+  height: 720
+touch:
+  width: 720
+  height: 1280
+  rotation: counterclockwise
+points:
+  judge_left:
+  - 122.0
+  - 590.0
+  judge_right:
+  - 1156.0
+  - 590.0
+  track_top_left:
+  - 531.0
+  - 149.0
+  track_top_right:
+  - 763.0
+  - 160.0
+lanes:
+  count: 7

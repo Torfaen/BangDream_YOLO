@@ -23,8 +23,8 @@ class AppConfig:
     instance_id: int = 0
     display_id: int = 0
     adb_serial: str = DEFAULT_ADB_SERIAL
-    screen_width: int = 1600
-    screen_height: int = 900
+    screen_width: int = 1280
+    screen_height: int = 720
     minitouch_port: int = 1111
     minitouch_remote_path: str = "/data/local/tmp/minitouch"
     log_level: str = "INFO"
@@ -38,8 +38,8 @@ def load_config() -> AppConfig:
         instance_id=int(os.getenv("BANGDREAM_MUMU_INSTANCE_ID", "0")),
         display_id=int(os.getenv("BANGDREAM_MUMU_DISPLAY_ID", "0")),
         adb_serial=os.getenv("BANGDREAM_ADB_SERIAL", DEFAULT_ADB_SERIAL),
-        screen_width=int(os.getenv("BANGDREAM_SCREEN_WIDTH", "1600")),
-        screen_height=int(os.getenv("BANGDREAM_SCREEN_HEIGHT", "900")),
+        screen_width=int(os.getenv("BANGDREAM_SCREEN_WIDTH", "1280")),
+        screen_height=int(os.getenv("BANGDREAM_SCREEN_HEIGHT", "720")),
         minitouch_port=int(os.getenv("BANGDREAM_MINITOUCH_PORT", "1111")),
         minitouch_remote_path=os.getenv(
             "BANGDREAM_MINITOUCH_REMOTE_PATH", "/data/local/tmp/minitouch"
