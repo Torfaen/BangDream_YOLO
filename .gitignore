@@ -1,0 +1,65 @@
+# --- Python ---
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+pip-wheel-metadata/
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+secrets.yaml
+*.pem
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- 项目规划：数据与权重（大文件不进仓库）---
+data/raw/
+data/labeled/
+models/
+runs/
+
+# Ultralytics / 训练产物常见扩展名
+*.pt
+*.pth
+*.onnx
+*.engine
+*.mlmodel
+wandb/
+mlruns/
+lightning_logs/
+
+# --- 规划中的第三方预编译（minitouch 等，用脚本下载）---
+third_party/minitouch/*
+!third_party/minitouch/.gitkeep
+
+# --- 日志 ---
+*.log
+logs/
