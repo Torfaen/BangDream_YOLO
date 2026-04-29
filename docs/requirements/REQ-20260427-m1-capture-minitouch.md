@@ -44,11 +44,11 @@
 - DLL 搜索顺序：
   - `shell/sdk/external_renderer_ipc.dll`
   - `nx_device/12.0/shell/sdk/external_renderer_ipc.dll`
-- 截图原始数据为 BGRA / RGBA 风格的 4 通道数组，且图像上下倒置。
+- 截图原始数据在当前 MuMu 环境实测为 RGBA 风格的 4 通道数组，且图像上下倒置。
 - 对外返回 `np.ndarray`，格式为 OpenCV 常用的 **BGR**。
 - 输出前执行：
   - `np.ctypeslib.as_array(...).reshape((height, width, 4))`
-  - `cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)`
+  - `cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)`
   - `cv2.flip(image, 0)`
 - 本阶段只封装截图，不实现 nemu_ipc 单点触控，因为音游需要多指。
 

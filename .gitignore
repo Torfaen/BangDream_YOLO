@@ -42,6 +42,7 @@ Desktop.ini
 
 # --- 项目规划：数据与权重（大文件不进仓库）---
 data/raw/
+data/annotated/
 data/labeled/
 models/
 runs/
@@ -66,3 +67,8 @@ third_party/minitouch/*
 # --- 日志 ---
 *.log
 logs/
+
+# --- 手动截图/临时导出 ---
+ScreenShot_*.png
+Screenshot_*.png
+temp/

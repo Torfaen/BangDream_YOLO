@@ -114,8 +114,8 @@ class NemuIpc:
     def screenshot(self) -> np.ndarray:
         """Capture one frame and return an OpenCV BGR image.
 
-        MuMu IPC returns a 4-channel image that is upside down. The conversion
-        here keeps downstream code in the normal OpenCV coordinate system.
+        MuMu IPC returns an upside-down 4-channel RGBA image on this setup.
+        The conversion keeps downstream code in OpenCV's BGR coordinate system.
         """
 
         if not self.connect_id:
@@ -143,5 +143,5 @@ class NemuIpc:
         self.width = int(width_ptr.contents.value)
         self.height = int(height_ptr.contents.value)
         image = np.ctypeslib.as_array(pixel_buffer).reshape((self.height, self.width, 4))
-        bgr = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+        bgr = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
         return cv2.flip(bgr, 0)

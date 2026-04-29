@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-当前对应主计划 `m1_capture` / `m1_minitouch`：截图与多指输入验证。
+当前对应主计划 `m3_dataset`：录制截图、手动标注并准备 YOLO 第一版数据集。
 
 已完成：
 
@@ -16,6 +16,7 @@
 - `minitouch` 多指输入封装
 - 5 指点击测试工具
 - 几何标定工具（4 点标定，输出 `data/calibration.yml`）
+- m3 录制与数据集划分工具
 
 本阶段暂不做：
 
@@ -70,6 +71,38 @@ python -m bangdream_yolo.tools.calibrate
 ```
 
 按顺序点击：判定线左端、判定线右端、远端轨道左边界、远端轨道右边界。按 `s` 保存，`r` 重置，`q` 退出。
+
+录制待标注截图：
+
+```powershell
+python -m bangdream_yolo.tools.record_session --seconds 60 --interval 0.1
+```
+
+默认输出到 `data/raw/session_YYYYMMDD_HHMMSS/`。录制图片不提交到 Git。
+
+转换 X-AnyLabeling/LabelMe 标注为 YOLO 数据：
+
+```powershell
+python -m bangdream_yolo.tools.convert_annotations `
+  --source temp `
+  --output data/annotated `
+  --force
+```
+
+默认会递归读取源目录下的 JSON，复制对应 PNG，并生成 `data/annotated/images/` 与 `data/annotated/labels/`。
+
+划分已标注 YOLO 数据：
+
+```powershell
+python -m bangdream_yolo.tools.split_dataset `
+  --images data/annotated/images `
+  --labels data/annotated/labels `
+  --output data/labeled
+```
+
+第一版类别：`tap`、`skill`、`flick`、`green_note`。绿色长按/slide 的头尾语义后续由时序和 pointer 状态判断；数据集配置见 `data/dataset.yaml`。
+
+类别调整波及范围：m4 训练、m5 跟踪、m6 调度和 m7 调试叠加都按 `green_note` 处理；m0-m2 的环境、截图、触控和标定不受影响。
 
 当前外置资源：`minitouch-prebuilt@1.2.0`（Apache-2.0，来源 [npm minitouch-prebuilt](https://www.npmjs.com/package/minitouch-prebuilt)，上游 [openstf/minitouch](https://github.com/openstf/minitouch)）。后续模型权重、样例素材等也会统一接入 `fetch_assets`。
 

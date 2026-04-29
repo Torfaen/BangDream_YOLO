@@ -1,0 +1,9 @@
+path: data/labeled
+train: images/train
+val: images/val
+test: images/test
+names:
+  0: tap
+  1: skill
+  2: flick
+  3: green_note
