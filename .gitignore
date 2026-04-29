@@ -16,6 +16,7 @@ build/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+.cache/
 .coverage
 htmlcov/
 .tox/
@@ -67,6 +68,7 @@ third_party/minitouch/*
 # --- 日志 ---
 *.log
 logs/
+Ultralytics/
 
 # --- 手动截图/临时导出 ---
 ScreenShot_*.png

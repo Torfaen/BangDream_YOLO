@@ -104,6 +104,14 @@ python -m bangdream_yolo.tools.split_dataset `
 
 类别调整波及范围：m4 训练、m5 跟踪、m6 调度和 m7 调试叠加都按 `green_note` 处理；m0-m2 的环境、截图、触控和标定不受影响。
 
+运行 m4 冒烟训练：
+
+```powershell
+python -m bangdream_yolo.tools.train --epochs 1 --name m4_smoke_e1
+```
+
+正式训练可改用 `--model yolov8s.pt --epochs 50`，并用 `--copy-best models/bangdream_yolo_m4.pt` 保存 best 权重。GPU 训练需要当前 Python 环境安装 CUDA 版 PyTorch，可用 `--device 0` 强制使用第 0 张显卡。`runs/` 和 `models/` 不提交到 Git。
+
 当前外置资源：`minitouch-prebuilt@1.2.0`（Apache-2.0，来源 [npm minitouch-prebuilt](https://www.npmjs.com/package/minitouch-prebuilt)，上游 [openstf/minitouch](https://github.com/openstf/minitouch)）。后续模型权重、样例素材等也会统一接入 `fetch_assets`。
 
 ## 已确认的本机默认配置
