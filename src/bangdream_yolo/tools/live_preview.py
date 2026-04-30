@@ -13,6 +13,10 @@ import numpy as np
 
 from bangdream_yolo.capture.nemu_ipc import NemuIpc, NemuIpcError
 from bangdream_yolo.config import load_config
+from bangdream_yolo.detection.postprocess import postprocess_detections
+from bangdream_yolo.geometry.calibration import DEFAULT_CALIBRATION_PATH, load_calibration
+from bangdream_yolo.tracker.note_tracker import NoteTracker
+from bangdream_yolo.tracker.state import TrackedNote
 
 
 DEFAULT_COLORS = {
@@ -20,6 +24,13 @@ DEFAULT_COLORS = {
     1: (0, 215, 255),
     2: (255, 80, 220),
     3: (80, 255, 80),
+}
+
+TYPE_COLORS = {
+    "tap": DEFAULT_COLORS[0],
+    "skill": DEFAULT_COLORS[1],
+    "flick": DEFAULT_COLORS[2],
+    "green_note": DEFAULT_COLORS[3],
 }
 
 
@@ -84,6 +95,31 @@ def draw_detections(frame, result, names: object, fps: float) -> None:
         2,
         cv2.LINE_AA,
     )
+
+
+def draw_tracks(frame, tracks: list[TrackedNote]) -> None:
+    """Draw lane, track id, and ETA labels for active tracked notes."""
+
+    for track in tracks:
+        detection = track.latest
+        x1, _y1, _x2, y2 = [int(value) for value in detection.bbox]
+        center = (int(detection.center_x), int(detection.center_y))
+        color = TYPE_COLORS.get(track.note_type, (255, 255, 255))
+        eta = "ETA --" if track.eta_seconds is None else f"ETA {track.eta_seconds * 1000:.0f}ms"
+        label = f"L{track.lane} #{track.track_id} {eta}"
+        label_y = min(frame.shape[0] - 8, max(18, y2 + 18))
+
+        cv2.circle(frame, center, 4, color, -1)
+        cv2.putText(
+            frame,
+            label,
+            (x1, label_y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            color,
+            2,
+            cv2.LINE_AA,
+        )
 
 
 def fit_window_size(
@@ -180,6 +216,13 @@ def main() -> int:
     parser.add_argument("--window-width", type=int, default=1280, help="Preview max width; 0 uses source width.")
     parser.add_argument("--window-height", type=int, default=720, help="Preview max height; 0 uses source height.")
     parser.add_argument("--topmost", action="store_true", help="Keep the OpenCV window on top.")
+    parser.add_argument("--show-tracks", action="store_true", help="Show m5 lane/track/ETA debug overlay.")
+    parser.add_argument(
+        "--calibration",
+        type=Path,
+        default=DEFAULT_CALIBRATION_PATH,
+        help="Calibration YAML path used by --show-tracks.",
+    )
     args = parser.parse_args()
 
     if not args.model.exists():
@@ -192,6 +235,13 @@ def main() -> int:
     YOLO = import_yolo()
     model = YOLO(str(args.model))
     config = load_config()
+    calibration = None
+    tracker = None
+    if args.show_tracks:
+        if not args.calibration.exists():
+            raise SystemExit(f"标定文件不存在：{args.calibration}；请先运行 `python -m bangdream_yolo.tools.calibrate`")
+        calibration = load_calibration(args.calibration)
+        tracker = NoteTracker()
 
     predict_kwargs = {
         "imgsz": args.imgsz,
@@ -235,7 +285,14 @@ def main() -> int:
                     resized_window = True
 
                 result = model.predict(frame, **predict_kwargs)[0]
+                tracks: list[TrackedNote] = []
+                if tracker is not None and calibration is not None:
+                    detections = postprocess_detections(result, calibration, args.conf)
+                    tracks = tracker.update(detections, loop_start)
+
                 draw_detections(frame, result, model.names, fps)
+                if tracks:
+                    draw_tracks(frame, tracks)
                 window_width, window_height = current_window_image_size(
                     args.window_name,
                     fallback_window_width,

@@ -16,13 +16,13 @@ todos:
     status: completed
   - id: m3_dataset
     content: 里程碑 3：tools/record_session.py 录制选曲 PRO/EX 样本并抽帧。用 X-AnyLabeling 手标 4 类 note（tap/skill/flick/green_note），生成 YOLO 格式标签。8:1:1 划分 train/val/test，写 dataset.yaml。
-    status: in_progress
+    status: completed
   - id: m4_train
     content: 里程碑 4：tools/train.py 读取 4 类 data/dataset.yaml，调 yolov8s.pt 预训，imgsz=640，30-50 epochs。评估要求 mAP@0.5 ≥ 0.9，推理 ≤ 20ms (GPU)。导出 best.pt 到 models/。
-    status: pending
+    status: completed
   - id: m5_tracker
     content: 里程碑 5：detection/postprocess.py 将 YOLO 框转为 Note 实体（lane, type, y, conf；绿色统一为 green_note）。tracker/note_tracker.py 按 lane 分桶跨帧关联，线性回归估 v_y 与 ETA，支持 ≤2 帧丢检续命。
-    status: pending
+    status: in_progress
   - id: m6_policy
     content: 里程碑 6：policy/scheduler.py + input/pointer_pool.py。实现 pointer 池；tap/skill/flick/green_note 调度；按 ETA - latency_offset 触发 minitouch，下指/保持/移动/释放由绿色 note 的连续帧和 pointer 状态推断。
     status: pending

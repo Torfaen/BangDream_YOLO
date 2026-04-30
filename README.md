@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-当前对应主计划 `m3_dataset`：录制截图、手动标注并准备 YOLO 第一版数据集。
+当前对应主计划 `m5_tracker`：把 YOLO 检测框转换为可跨帧追踪的 note 实体，并估算 lane、下落速度与 ETA。
 
 已完成：
 
@@ -17,10 +17,11 @@
 - 5 指点击测试工具
 - 几何标定工具（4 点标定，输出 `data/calibration.yml`）
 - m3 录制与数据集划分工具
+- m4 训练入口、第一版 4 类模型与实时检测预览窗口
 
 本阶段暂不做：
 
-- YOLO 推理
+- `minitouch` 自动触控调度
 - 自动打歌闭环
 
 ## 环境准备
@@ -121,6 +122,14 @@ python -m bangdream_yolo.tools.live_preview --device 0 --topmost
 按 `q` 或 `Esc` 退出。若提示 `nemu_connect` 失败，先确认 MuMu 实例和游戏画面已经启动，再运行 `python -m bangdream_yolo.tools.check_env` 排查连接状态。
 
 预览窗口会在首帧截图后按画面比例调整到 `--window-width` / `--window-height` 范围内，默认 1280×720；用户手动拉伸窗口时会用黑边等比居中显示，游戏画面不会被压扁。
+
+开启 m5 跟踪调试叠加（显示 lane、track_id、ETA，不会触控）：
+
+```powershell
+python -m bangdream_yolo.tools.live_preview --device 0 --topmost --show-tracks
+```
+
+`--show-tracks` 需要先完成 `data/calibration.yml` 标定；本阶段只验证追踪和 ETA，自动触控留到 m6。
 
 当前外置资源：`minitouch-prebuilt@1.2.0`（Apache-2.0，来源 [npm minitouch-prebuilt](https://www.npmjs.com/package/minitouch-prebuilt)，上游 [openstf/minitouch](https://github.com/openstf/minitouch)）。后续模型权重、样例素材等也会统一接入 `fetch_assets`。
 
