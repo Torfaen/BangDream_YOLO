@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import importlib.util
 import os
-import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from bangdream_yolo.android import AdbError, find_adb_executable, resolve_adb_serial
 from bangdream_yolo.config import load_config
-from bangdream_yolo.input.minitouch import MinitouchError, resolve_adb_serial
 
 
 REQUIRED_MODULES = {
@@ -27,14 +26,6 @@ NEMU_IPC_DLL_CANDIDATES = (
     Path("shell/sdk/external_renderer_ipc.dll"),
     Path("nx_device/12.0/shell/sdk/external_renderer_ipc.dll"),
 )
-
-MUMU_ADB_CANDIDATES = (
-    Path("shell/adb.exe"),
-    Path("shell/adb/adb.exe"),
-    Path("nx_device/12.0/shell/adb.exe"),
-    Path("nx_device/12.0/shell/adb/adb.exe"),
-)
-
 
 @dataclass(frozen=True)
 class CheckResult:
@@ -120,20 +111,6 @@ def check_nemu_ipc_dll(mumu_path: Path) -> CheckResult:
     return CheckResult("external_renderer_ipc.dll", False, f"未找到；已检查：{candidates}")
 
 
-def find_adb_executable(mumu_path: Path) -> str | None:
-    """Find adb from PATH first, then from known MuMu install locations."""
-
-    adb_path = shutil.which("adb")
-    if adb_path is not None:
-        return adb_path
-
-    for relative_path in MUMU_ADB_CANDIDATES:
-        candidate = mumu_path / relative_path
-        if candidate.exists():
-            return str(candidate)
-    return None
-
-
 def check_adb(mumu_path: Path, adb_serial: str) -> list[CheckResult]:
     """Check adb executable and resolve the target MuMu serial."""
 
@@ -161,7 +138,7 @@ def check_adb(mumu_path: Path, adb_serial: str) -> list[CheckResult]:
             adb_path=adb_path,
             quiet=True,
         )
-    except MinitouchError as exc:
+    except AdbError as exc:
         results.append(CheckResult("ADB serial", False, str(exc)))
         return results
 

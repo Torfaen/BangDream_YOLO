@@ -30,6 +30,12 @@ m6 真实触控时发现 MuMu ADB serial 会在重启或 ADB server 重新枚举
 resolve_adb_serial(mumu_path, preferred_serial) -> str
 ```
 
+代码归属：
+
+- ADB 可执行文件查找、`adb devices -l` 解析、serial 自动兜底放在 `src/bangdream_yolo/android.py`。
+- `MinitouchClient` 只负责 minitouch 二进制、forward、socket 和文本协议；启动时调用上述 ADB helper 获取实际 serial。
+- `check_env`、`fetch_assets`、`test_multitouch` 复用同一套 ADB helper，不各自复制查找逻辑。
+
 规则：
 
 1. 使用 MuMu 自带 adb 或 PATH 中的 adb 执行 `adb devices -l`。

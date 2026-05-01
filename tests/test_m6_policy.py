@@ -6,6 +6,7 @@ import contextlib
 import io
 import unittest
 
+from bangdream_yolo.android import parse_adb_devices
 from bangdream_yolo.detection.postprocess import NoteDetection
 from bangdream_yolo.geometry.calibration import Calibration, Point
 from bangdream_yolo.geometry.lane import capture_to_touch
@@ -13,7 +14,6 @@ from bangdream_yolo.input.minitouch import (
     MinitouchBanner,
     MinitouchClient,
     MinitouchError,
-    parse_adb_devices,
     parse_minitouch_banner,
 )
 from bangdream_yolo.input.pointer_pool import PointerPool

@@ -8,9 +8,9 @@ import sys
 import time
 from pathlib import Path
 
-from bangdream_yolo.android import AdbError, read_wm_size
+from bangdream_yolo.android import AdbError, read_wm_size, resolve_adb_serial
 from bangdream_yolo.config import load_config
-from bangdream_yolo.input.minitouch import MinitouchClient, MinitouchError, resolve_adb_serial
+from bangdream_yolo.input.minitouch import MinitouchClient
 
 
 def project_root() -> Path:
@@ -33,7 +33,7 @@ def main() -> int:
 
     try:
         adb_serial = resolve_adb_serial(config.mumu_path, config.adb_serial)
-    except MinitouchError as exc:
+    except AdbError as exc:
         print(exc)
         adb_serial = config.adb_serial
 
