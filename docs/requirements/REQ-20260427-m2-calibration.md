@@ -52,15 +52,19 @@
 
 初版转换规则：
 
-- 若 touch 尺寸是 capture 尺寸的旋转形态（例如 capture `1280x720`、touch `720x1280`），使用顺时针/逆时针旋转映射。
+- 若 touch 尺寸是 capture 尺寸的旋转或转置形态（例如 capture `1280x720`、touch `720x1280`），使用可配置映射。
 - m2 会保存转换方向字段 `touch_rotation`，初始支持：
   - `none`
   - `clockwise`
   - `counterclockwise`
-- 默认先按 MuMu 当前表现使用 `counterclockwise` 映射：
+  - `transpose`
+- 旧版默认按 MuMu 推断使用 `counterclockwise` 映射：
   - `touch_x = capture_y`
   - `touch_y = capture_width - capture_x`
-- 若后续实测方向相反，再在 `data/calibration.yml` 中改为 `clockwise`。
+- 2026-05-01 实测当前 MuMu 12 使用 `clockwise` 更符合触点位置：
+  - `touch_x = capture_height - capture_y`
+  - `touch_y = capture_x`
+- 若后续实测方向不同，在 `data/calibration.yml` 中改为对应映射。
 
 ### 4 点标定
 

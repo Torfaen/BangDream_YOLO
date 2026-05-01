@@ -84,6 +84,10 @@ def capture_to_touch(calibration: Calibration, point: Point) -> Point:
         scale_x = calibration.touch_width / calibration.capture_height
         scale_y = calibration.touch_height / calibration.capture_width
         return Point((calibration.capture_height - point.y) * scale_x, point.x * scale_y)
+    if rotation == "transpose":
+        scale_x = calibration.touch_width / calibration.capture_height
+        scale_y = calibration.touch_height / calibration.capture_width
+        return Point(point.y * scale_x, point.x * scale_y)
     raise ValueError(f"不支持的 touch_rotation：{rotation}")
 
 

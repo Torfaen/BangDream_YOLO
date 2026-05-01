@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-当前对应主计划 `m5_tracker`：把 YOLO 检测框转换为可跨帧追踪的 note 实体，并估算 lane、下落速度与 ETA。
+当前对应主计划 `m6_policy`：基于 m5 的 lane、track_id 与 ETA，设计 pointer 池和触控调度策略。
 
 已完成：
 
@@ -14,14 +14,14 @@
 - `nemu_ipc` 截图封装
 - 截图 FPS 基准工具
 - `minitouch` 多指输入封装
-- 5 指点击测试工具
+- 单点/5 指点击测试工具
 - 几何标定工具（4 点标定，输出 `data/calibration.yml`）
 - m3 录制与数据集划分工具
 - m4 训练入口、第一版 4 类模型与实时检测预览窗口
+- m5 检测后处理、跨帧追踪与 ETA 调试叠加
 
 本阶段暂不做：
 
-- `minitouch` 自动触控调度
 - 自动打歌闭环
 
 ## 环境准备
@@ -59,7 +59,13 @@ python -m bangdream_yolo.tools.fetch_assets
 python -m bangdream_yolo.tools.fetch_assets --abi x86_64
 ```
 
-运行 5 指触控测试：
+运行 minitouch 单点 smoke test：
+
+```powershell
+python -m bangdream_yolo.tools.test_multitouch --single
+```
+
+单点能成功后，再运行 5 指触控测试：
 
 ```powershell
 python -m bangdream_yolo.tools.test_multitouch
@@ -130,6 +136,20 @@ python -m bangdream_yolo.tools.live_preview --device 0 --topmost --show-tracks
 ```
 
 `--show-tracks` 需要先完成 `data/calibration.yml` 标定；本阶段只验证追踪和 ETA，自动触控留到 m6。
+
+运行 m6 策略预览（默认 dry-run，只显示和打印动作，不触控）：
+
+```powershell
+python -m bangdream_yolo.tools.policy_preview --device 0 --topmost
+```
+
+确认动作时机后，如需真实发送 minitouch 事件，必须显式启用：
+
+```powershell
+python -m bangdream_yolo.tools.policy_preview --device 0 --topmost --enable-touch
+```
+
+真实触控启动时会打印 minitouch banner，例如 `max_contacts/max_x/max_y/max_pressure/pid`；若首个 `commit` 后仍断开，先用 `test_multitouch --single` 判断是否为 minitouch 后端、权限、ABI 或已有连接占用问题。
 
 当前外置资源：`minitouch-prebuilt@1.2.0`（Apache-2.0，来源 [npm minitouch-prebuilt](https://www.npmjs.com/package/minitouch-prebuilt)，上游 [openstf/minitouch](https://github.com/openstf/minitouch)）。后续模型权重、样例素材等也会统一接入 `fetch_assets`。
 

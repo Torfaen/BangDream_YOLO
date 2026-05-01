@@ -12,7 +12,7 @@ import yaml
 CALIBRATION_VERSION = 1
 DEFAULT_CALIBRATION_PATH = Path("data/calibration.yml")
 POINT_NAMES = ("judge_left", "judge_right", "track_top_left", "track_top_right")
-TOUCH_ROTATIONS = ("none", "clockwise", "counterclockwise")
+TOUCH_ROTATIONS = ("none", "clockwise", "counterclockwise", "transpose")
 
 
 @dataclass(frozen=True)
@@ -112,5 +112,5 @@ def infer_touch_rotation(
     if (capture_width, capture_height) == (touch_width, touch_height):
         return "none"
     if (capture_width, capture_height) == (touch_height, touch_width):
-        return "counterclockwise"
+        return "clockwise"
     return "none"

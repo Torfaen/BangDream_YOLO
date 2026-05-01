@@ -1,4 +1,4 @@
-"""Check local prerequisites before implementing capture and input backends."""
+"""Check local prerequisites before running capture, training, and input tools."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from bangdream_yolo.config import load_config
+from bangdream_yolo.input.minitouch import MinitouchError, resolve_adb_serial
 
 
 REQUIRED_MODULES = {
@@ -49,6 +50,17 @@ def _format_result(result: CheckResult) -> str:
     return f"[{status}] {result.name}: {result.detail}"
 
 
+def _run_command(command: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        command,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
 def check_python_version() -> CheckResult:
     """Verify the interpreter is new enough for this project."""
 
@@ -61,7 +73,7 @@ def check_python_version() -> CheckResult:
 
 
 def check_python_modules() -> list[CheckResult]:
-    """Check whether the initial dependency set can be imported."""
+    """Check whether the dependency set can be imported."""
 
     results: list[CheckResult] = []
     for module_name, package_name in REQUIRED_MODULES.items():
@@ -71,7 +83,7 @@ def check_python_modules() -> list[CheckResult]:
                 CheckResult(
                     f"Python 依赖 {package_name}",
                     False,
-                    f"缺失；请运行 pip install -r requirements.txt",
+                    "缺失；请运行 pip install -r requirements.txt",
                 )
             )
         else:
@@ -108,17 +120,6 @@ def check_nemu_ipc_dll(mumu_path: Path) -> CheckResult:
     return CheckResult("external_renderer_ipc.dll", False, f"未找到；已检查：{candidates}")
 
 
-def _run_command(command: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        command,
-        check=False,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-
-
 def find_adb_executable(mumu_path: Path) -> str | None:
     """Find adb from PATH first, then from known MuMu install locations."""
 
@@ -134,7 +135,7 @@ def find_adb_executable(mumu_path: Path) -> str | None:
 
 
 def check_adb(mumu_path: Path, adb_serial: str) -> list[CheckResult]:
-    """Check adb executable and whether the configured MuMu serial is visible."""
+    """Check adb executable and resolve the target MuMu serial."""
 
     adb_path = find_adb_executable(mumu_path)
     if adb_path is None:
@@ -147,26 +148,33 @@ def check_adb(mumu_path: Path, adb_serial: str) -> list[CheckResult]:
         ]
 
     results = [CheckResult("ADB 可执行文件", True, adb_path)]
-    completed = _run_command([adb_path, "devices"])
+    completed = _run_command([adb_path, "devices", "-l"])
     output = (completed.stdout + completed.stderr).strip()
     if completed.returncode != 0:
         results.append(CheckResult("ADB 设备列表", False, output or "adb devices 执行失败"))
         return results
 
-    visible = adb_serial in output
-    if visible:
+    try:
+        resolved_serial = resolve_adb_serial(
+            mumu_path,
+            adb_serial,
+            adb_path=adb_path,
+            quiet=True,
+        )
+    except MinitouchError as exc:
+        results.append(CheckResult("ADB serial", False, str(exc)))
+        return results
+
+    if resolved_serial == adb_serial:
         detail = f"已找到 {adb_serial}"
     else:
-        detail = (
-            f"未看到 {adb_serial}；可先启动 MuMu 后运行 "
-            f"`{adb_path} connect {adb_serial}`。adb devices 输出：{output}"
-        )
-    results.append(CheckResult("ADB serial", visible, detail))
+        detail = f"配置 {adb_serial} 不在线；自动使用 {resolved_serial}"
+    results.append(CheckResult("ADB serial", True, detail))
     return results
 
 
 def main() -> int:
-    """Run all m0 environment checks and return a shell-friendly exit code."""
+    """Run all environment checks and return a shell-friendly exit code."""
 
     if os.name == "nt":
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -182,7 +190,7 @@ def main() -> int:
 
     print("BangDream YOLO 环境检查")
     print(f"MuMu 路径: {config.mumu_path}")
-    print(f"ADB serial: {config.adb_serial}")
+    print(f"配置 ADB serial: {config.adb_serial}")
     print("")
     for result in results:
         print(_format_result(result))

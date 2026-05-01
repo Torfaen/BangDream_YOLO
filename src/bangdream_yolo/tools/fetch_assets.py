@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from bangdream_yolo.config import load_config
-from bangdream_yolo.input.minitouch import find_adb_executable
+from bangdream_yolo.input.minitouch import MinitouchError, find_adb_executable, resolve_adb_serial
 
 
 MINITOUCH_VERSION = "1.2.0"
@@ -61,9 +61,18 @@ def read_device_abi(mumu_path: Path, adb_serial: str) -> str | None:
     adb_path = find_adb_executable(mumu_path)
     if adb_path is None:
         return None
+    try:
+        resolved_serial = resolve_adb_serial(
+            mumu_path,
+            adb_serial,
+            adb_path=adb_path,
+            quiet=True,
+        )
+    except MinitouchError:
+        return None
 
     completed = subprocess.run(
-        [adb_path, "-s", adb_serial, "shell", "getprop", "ro.product.cpu.abi"],
+        [adb_path, "-s", resolved_serial, "shell", "getprop", "ro.product.cpu.abi"],
         check=False,
         capture_output=True,
         text=True,

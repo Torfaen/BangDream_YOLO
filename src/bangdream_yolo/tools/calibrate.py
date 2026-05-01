@@ -135,7 +135,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--rotation",
-        choices=("auto", "none", "clockwise", "counterclockwise"),
+        choices=("auto", "none", "clockwise", "counterclockwise", "transpose"),
         default="auto",
         help="Touch coordinate rotation relative to capture coordinates.",
     )

@@ -6,7 +6,7 @@ import re
 import subprocess
 from pathlib import Path
 
-from bangdream_yolo.input.minitouch import find_adb_executable
+from bangdream_yolo.input.minitouch import MinitouchError, find_adb_executable, resolve_adb_serial
 
 
 class AdbError(RuntimeError):
@@ -14,14 +14,24 @@ class AdbError(RuntimeError):
 
 
 def run_adb(mumu_path: Path, adb_serial: str, *args: str) -> subprocess.CompletedProcess[str]:
-    """Run adb for the configured device and return the completed process."""
+    """Run adb for the configured or auto-resolved device."""
 
     adb_path = find_adb_executable(mumu_path)
     if adb_path is None:
         raise AdbError("未找到 adb；请确认 MuMu 自带 adb 存在或 adb 在 PATH 中")
 
+    try:
+        resolved_serial = resolve_adb_serial(
+            mumu_path,
+            adb_serial,
+            adb_path=adb_path,
+            quiet=True,
+        )
+    except MinitouchError as exc:
+        raise AdbError(str(exc)) from exc
+
     completed = subprocess.run(
-        [adb_path, "-s", adb_serial, *args],
+        [adb_path, "-s", resolved_serial, *args],
         check=False,
         capture_output=True,
         text=True,

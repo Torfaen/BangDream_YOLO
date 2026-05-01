@@ -22,10 +22,10 @@ todos:
     status: completed
   - id: m5_tracker
     content: 里程碑 5：detection/postprocess.py 将 YOLO 框转为 Note 实体（lane, type, y, conf；绿色统一为 green_note）。tracker/note_tracker.py 按 lane 分桶跨帧关联，线性回归估 v_y 与 ETA，支持 ≤2 帧丢检续命。
-    status: in_progress
+    status: completed
   - id: m6_policy
     content: 里程碑 6：policy/scheduler.py + input/pointer_pool.py。实现 pointer 池；tap/skill/flick/green_note 调度；按 ETA - latency_offset 触发 minitouch，下指/保持/移动/释放由绿色 note 的连续帧和 pointer 状态推断。
-    status: pending
+    status: in_progress
   - id: m7_loop
     content: 里程碑 7：src/bangdream_yolo/main.py 闭环主循环；viz/overlay.py 可选叠加检测框+ETA 调试窗口，绿色统一显示 green_note；在 EASY 鲁棒谱面跟踪 end-to-end 延迟，标定 latency_offset。
     status: pending
@@ -114,7 +114,7 @@ BangDream_yolo/
 - **外置资源下载**：所有不进 Git 的外置资源（如 minitouch 二进制、后续模型权重、样例素材）统一接入 `python -m bangdream_yolo.tools.fetch_assets`。工具用 Python 标准库下载，按资源清单维护 URL、版本、许可证、目标路径和可选 SHA256；默认跳过已存在文件，支持 `--force` 覆盖。
 - **几何标定**：交互式选 4 点（判定线左/右，远端轨道左/右），求透视矩阵；7 lane 中心通过判定线段 8 等分得到。屏幕 note 中心 → 反投影 → lane id + 屏幕 X（最终下指 X 用判定线那一行的实际 X，避免透视偏移）。
 - **跟踪与 ETA**：按 lane 分桶，新框关联到上一帧最近 Y 且单调下落的 note；用最近 N 帧线性回归估 v_y(px/s)，ETA = (judge_y - y_now) / v_y。允许连续 ≤2 帧丢检续命。绿色 note 的头尾不依赖 YOLO 类别，由连续帧和 pointer 状态推断。
-- **多指调度**：pointer 池管理同时触点；tap/skill 完即归还；flick 在判定时刻短滑 ~30px 后 up；green_note 根据连续帧和当前按住状态决定按下、保持、移动或释放。`latency_offset` 经验值 ~40ms（截图 + 推理 + minitouch RTT），首次跑分时校准。
+- **多指调度**：pointer 池管理同时触点；tap/skill 完即归还；flick 比 tap 提前约 20ms 触发，按游戏画面向下滑约 100px，滑动过程约 50ms 后 up；green_note 根据连续帧和当前按住状态决定按下、保持、移动或释放。`latency_offset` 经验值 ~40ms（截图 + 推理 + minitouch RTT），首次跑分时校准。
 - **延迟预期**：端到端 30~50ms。EASY/NORMAL/PRO 难度可稳定 AP，EX 大部分谱面能跑通但凹 AP 不现实，SP/凹榜禁止（封号风险）。
 
 ## 风险与限制
