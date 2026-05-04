@@ -79,6 +79,15 @@ class PostprocessTests(unittest.TestCase):
         self.assertAlmostEqual(detections[0].track_x, 0.5, places=5)
         self.assertAlmostEqual(detections[0].track_y, 0.5, places=5)
 
+    def test_postprocess_keeps_green_bar_class(self) -> None:
+        result = FakeResult([FakeBox([45, 75, 55, 85], class_id=4, confidence=0.8)])
+
+        detections = postprocess_detections(result, rectangle_calibration(), conf_threshold=0.25)
+
+        self.assertEqual(len(detections), 1)
+        self.assertEqual(detections[0].note_type, "green_bar")
+        self.assertEqual(detections[0].lane, 3)
+
     def test_postprocess_ignores_low_confidence_and_unknown_classes(self) -> None:
         result = FakeResult(
             [

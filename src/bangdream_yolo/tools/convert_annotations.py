@@ -19,6 +19,7 @@ LABEL_TO_ID = {
     "skill": 1,
     "flick": 2,
     "green_note": 3,
+    "green_bar": 4,
 }
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".bmp", ".webp")
 

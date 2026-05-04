@@ -37,7 +37,7 @@ python -m bangdream_yolo.tools.live_preview --device 0
 
 默认参数：
 
-- `--model models/bangdream_yolo_m4.pt`
+- `--model models/bangdream_yolo_m4_green_bar.pt`
 - `--conf 0.25`
 - `--imgsz 640`
 - `--device auto`

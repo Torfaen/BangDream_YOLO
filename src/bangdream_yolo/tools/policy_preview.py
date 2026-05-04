@@ -120,6 +120,11 @@ def build_scheduler_config(args: argparse.Namespace) -> SchedulerConfig:
         trigger_window_before=args.trigger_window_before,
         trigger_window_after=args.trigger_window_after,
         green_release_grace=args.green_release_grace,
+        green_bar_min_track_y=args.green_bar_min_track_y,
+        green_bar_max_track_y=args.green_bar_max_track_y,
+        green_slot_match_lanes=args.green_slot_match_lanes,
+        green_bar_follow_lanes=args.green_bar_follow_lanes,
+        green_terminal_arm_seconds=args.green_terminal_arm_seconds,
         pressure=args.pressure,
         max_pointers=args.max_pointers,
     )
@@ -132,7 +137,7 @@ def main() -> int:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     parser = argparse.ArgumentParser(description="Live BangDream ETA policy preview.")
-    parser.add_argument("--model", type=Path, default=Path("models/bangdream_yolo_m4.pt"))
+    parser.add_argument("--model", type=Path, default=Path("models/bangdream_yolo_m4_green_bar.pt"))
     parser.add_argument("--calibration", type=Path, default=DEFAULT_CALIBRATION_PATH)
     parser.add_argument("--conf", type=float, default=0.25, help="YOLO confidence threshold.")
     parser.add_argument("--imgsz", type=int, default=640, help="YOLO inference image size.")
@@ -152,7 +157,12 @@ def main() -> int:
     parser.add_argument("--flick-lead-seconds", type=float, default=0.020)
     parser.add_argument("--trigger-window-before", type=float, default=0.025)
     parser.add_argument("--trigger-window-after", type=float, default=0.080)
-    parser.add_argument("--green-release-grace", type=float, default=0.120)
+    parser.add_argument("--green-release-grace", type=float, default=0.350)
+    parser.add_argument("--green-bar-min-track-y", type=float, default=0.82)
+    parser.add_argument("--green-bar-max-track-y", type=float, default=1.10)
+    parser.add_argument("--green-slot-match-lanes", type=float, default=0.75)
+    parser.add_argument("--green-bar-follow-lanes", type=float, default=1.35)
+    parser.add_argument("--green-terminal-arm-seconds", type=float, default=0.080)
     parser.add_argument("--pressure", type=int, default=100)
     parser.add_argument("--max-pointers", type=int, default=10)
     args = parser.parse_args()

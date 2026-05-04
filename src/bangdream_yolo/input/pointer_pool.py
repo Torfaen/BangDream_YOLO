@@ -81,7 +81,14 @@ class PointerPool:
             return None
         return self.release(slot.track_id)
 
-    def move(self, track_id: int, x: int, y: int) -> PointerSlot | None:
+    def move(
+        self,
+        track_id: int,
+        x: int,
+        y: int,
+        lane: int | None = None,
+        note_type: str | None = None,
+    ) -> PointerSlot | None:
         """Update the remembered coordinates for an active pointer."""
 
         slot = self.get_by_track(track_id)
@@ -89,6 +96,10 @@ class PointerPool:
             return None
         slot.x = int(x)
         slot.y = int(y)
+        if lane is not None:
+            slot.lane = lane
+        if note_type is not None:
+            slot.note_type = note_type
         return slot
 
     def get_by_track(self, track_id: int) -> PointerSlot | None:
@@ -114,4 +125,3 @@ class PointerPool:
         """Return all currently held pointers."""
 
         return [slot for slot in self.slots if slot.is_down]
-

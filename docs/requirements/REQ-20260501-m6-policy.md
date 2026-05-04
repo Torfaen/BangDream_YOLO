@@ -7,7 +7,7 @@
 目标：
 
 - 实现 pointer 池，管理同时按住的触点。
-- 根据 `ETA - latency_offset` 判断 tap/skill/flick/green_note 的触发时机。
+- 根据 `ETA - latency_offset` 判断 tap/skill/flick 的触发时机；绿色长条由判定线附近 `green_bar` 驱动触控。
 - 第一版先提供 dry-run 调试模式，输出将要发送的 down/move/up 事件。
 - 真实 `minitouch` 写入必须显式启用，避免默认误触。
 
@@ -28,7 +28,7 @@
 
 - 不实现完整自动打歌闭环主程序；m7 再做 `main.py` 连续闭环整合。
 - 不做复杂谱面级预测，不读取谱面文件。
-- 不区分绿色头、尾或 slide 子类；仍只接收 `green_note`。
+- 不区分绿色头、尾或 slide 子类；绿色普通长条的按下和移动以 `green_bar` 状态机为准，终点以 `green_note` / `flick` 为准。
 - 不默认启用真实触控。
 - 不追求 EX/AP 调优，m6 只验证调度链路和触控时机。
 
@@ -99,7 +99,8 @@ m6 真实触控前应使用 `touch.rotation: clockwise`。若后续不同模拟�
 - `flick_lead_seconds = 0.020` 秒
 - `trigger_window_before = 0.025` 秒
 - `trigger_window_after = 0.080` 秒
-- `green_release_grace = 0.120` 秒
+- `green_release_grace = 0.350` 秒
+- `green_terminal_arm_seconds = 0.080` 秒
 - `pressure = 100`（参考 ALAS 的 minitouch click 默认压力；若设备 banner 返回 `max_pressure=0`，仍保留正 pressure 发送）
 - `max_pointers = 10`
 
@@ -181,14 +182,16 @@ dry-run 模式只打印动作；真实模式把动作转换为 `MinitouchClient`
 
 当前 `touch.rotation: clockwise` 下，游戏画面向下对应 `touch_x - flick_distance`，`touch_y` 不变。若后续切换模拟器或旋转配置，需要重新确认 flick delta。
 
-### green_note
+### green_bar
 
-绿色 note 第一版不依赖 YOLO 头尾分类，使用 pointer 状态推断：
+最新绿色策略详见 `REQ-20260503-m6-greenbar-state-machine.md`：
 
-- 若 `green_note` 进入 ETA 触发窗口，且当前 lane 没有绿色 pointer，则 `down` 并保持。
-- 若同 lane 已有绿色 pointer，且继续看到 `green_note`，则保持；必要时按 lane 判定线 touch 坐标 `move`。
-- 若某个绿色 pointer 对应 lane 在 `green_release_grace` 内没有新的 `green_note` 续上，或相关 track 已经 inactive 且 ETA 明显为负，则 `up`。
-- 第一版只支持按 lane 保持，不追求复杂 slide 横向移动；如果后续看到绿色 slide 需要跨 lane 移动，再在 m7/m8 调整策略。
+- 底部 `green_bar` 到线时创建 green hold，并 `down` 到其中心。
+- active green hold 期间持续跟随底部 `green_bar` 中心。
+- `green_bar` 不作为释放终点。
+- 终点为 `green_note` 时释放当前 held pointer。
+- 终点为 `flick` 时复用 held pointer 执行 flick move/up，不额外 `down`。
+- `green_note` 不参与绿色起点或移动；创建 hold 同帧与起点 `green_bar` 重叠的 `green_note` 视为起点回声，不会释放该 hold。
 
 ### 调试入口
 
@@ -197,6 +200,14 @@ dry-run 模式只打印动作；真实模式把动作转换为 `MinitouchClient`
 ```powershell
 python -m bangdream_yolo.tools.policy_preview --device 0 --dry-run
 ```
+
+默认模型：
+
+```text
+models/bangdream_yolo_m4_green_bar.pt
+```
+
+`live_preview.py` 和 `policy_preview.py` 默认都使用 5 类 green_bar 模型；旧 flick 模型仅作为临时回退，可运行时显式传 `--model models/bangdream_yolo_m4_flick.pt`。
 
 默认行为：
 
@@ -219,6 +230,15 @@ python -m bangdream_yolo.tools.policy_preview --device 0 --enable-touch
 - 按 `q` 或 `Esc` 停止时释放所有 active pointer。
 - 如果 `minitouch` socket 中途断开，工具应包装为 `MinitouchError` 并优雅退出；若连接已经失效，退出清理阶段不再二次发送释放动作。
 
+### ADB serial 兜底
+
+MuMu 重启或 ADB server 重新枚举后，默认 `127.0.0.1:16384` 可能短暂不在线。m6 真实触控入口复用 `android.py` 的 ADB helper：
+
+- 优先使用配置的 `BANGDREAM_ADB_SERIAL` / 默认 serial。
+- 如果配置 serial 不在线，但 `adb devices -l` 中只有一个 `device` 状态设备，则自动回退到该设备并打印提示。
+- 如果没有在线设备，或多个在线设备且默认 serial 不在线，则明确报错，不猜目标设备。
+- `offline` / `unauthorized` 不视为可用设备。
+
 ## 验收标准
 
 - `python -m bangdream_yolo.tools.policy_preview --help` 能显示参数。
@@ -228,7 +248,7 @@ python -m bangdream_yolo.tools.policy_preview --device 0 --enable-touch
 - `python -m bangdream_yolo.tools.test_multitouch --single` 可作为独立于 YOLO/policy 的 minitouch smoke test。
 - `tap` / `skill` 进入 ETA 触发窗口时只触发一次 down/up。
 - `flick` 进入 ETA 触发窗口时产生 down/move/up。
-- `green_note` 能在连续帧中保持 pointer，并在断续超过 `green_release_grace` 后释放。
+- `green_bar` 能触发 green hold，并在连续帧中驱动 pointer 跟随中心；非起点回声的 `green_note` 或 `flick` 到线时按终点类型结束，断续超过 `green_release_grace` 后兜底释放。
 - pointer 池不会重复把同一个 pointer 分配给多个 active track。
 - 无可用 pointer 时记录 warning，主循环继续运行。
 - 所有退出路径释放 active pointer。
@@ -236,7 +256,7 @@ python -m bangdream_yolo.tools.policy_preview --device 0 --enable-touch
   - pointer acquire/release；
   - tap/skill 去重；
   - flick 动作序列；
-  - green_note 保持与超时释放；
+  - green_bar 状态机按下、跟随、终点释放、flick 复用、并发与超时释放；
   - 过期 ETA 不补打。
 
 ## 风险与回滚
@@ -245,7 +265,7 @@ python -m bangdream_yolo.tools.policy_preview --device 0 --enable-touch
 
 - `latency_offset` 默认值可能偏早或偏晚，需要 m7 实测校准。
 - flick 方向可能因 touch 坐标旋转变化与预期相反。
-- green_note 头尾语义仍是推断，长按/slide 可能提前释放或释放过晚。
+- 绿色长条触控依赖 `green_bar` / 终点 `green_note` / 终点 `flick` 检测；如果终点漏检，只能依赖 grace 兜底释放。
 - 真实触控可能影响游戏状态，必须先用 dry-run 验证。
 - `minitouch` 进程可能因 ABI、权限或输入设备异常中途断开 socket。
 
@@ -261,4 +281,6 @@ python -m bangdream_yolo.tools.policy_preview --device 0 --enable-touch
 - m6 先新增独立 `policy_preview.py`，不直接改成正式 `main.py` 闭环。
 - 真实触控必须显式 `--enable-touch`，默认只 dry-run。
 - flick 第一版统一按游戏画面向下短滑；当前 `clockwise` 映射下为 touch 坐标 `x - flick_distance`。
-- green_note 第一版只按 lane 保持与释放，不处理复杂跨 lane slide。
+- m6 当前绿色策略以 `REQ-20260503-m6-greenbar-state-machine.md` 为准：`green_bar` 只负责按住/跟随，终点只认 `green_note` 或 `flick`。
+- `live_preview.py` / `policy_preview.py` 默认模型统一为 `models/bangdream_yolo_m4_green_bar.pt`。
+- ADB serial 自动兜底只在唯一在线设备时启用，多设备场景必须显式指定。

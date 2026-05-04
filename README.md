@@ -107,9 +107,9 @@ python -m bangdream_yolo.tools.split_dataset `
   --output data/labeled
 ```
 
-第一版类别：`tap`、`skill`、`flick`、`green_note`。绿色长按/slide 的头尾语义后续由时序和 pointer 状态判断；数据集配置见 `data/dataset.yaml`。
+当前类别：`tap`、`skill`、`flick`、`green_note`、`green_bar`。绿色长按/slide 由 m6 的 `green_bar` 状态机处理：底部 `green_bar` 到线后按住并持续跟随，终点 `green_note` 到线时松开，终点 `flick` 到线时复用 held pointer 划出；`green_bar` 本身不作为释放终点，数据集配置见 `data/dataset.yaml`。
 
-类别调整波及范围：m4 训练、m5 跟踪、m6 调度和 m7 调试叠加都按 `green_note` 处理；m0-m2 的环境、截图、触控和标定不受影响。
+类别调整波及范围：m4 训练、m5 跟踪、m6 调度和 m7 调试叠加都按 5 类处理；m6 绿色触控由 `green_bar` 驱动，m0-m2 的环境、截图、触控和标定不受影响。
 
 运行 m4 冒烟训练：
 
@@ -118,6 +118,8 @@ python -m bangdream_yolo.tools.train --epochs 1 --name m4_smoke_e1
 ```
 
 正式训练可改用 `--model yolov8s.pt --epochs 50`，并用 `--copy-best models/bangdream_yolo_m4.pt` 保存 best 权重。GPU 训练需要当前 Python 环境安装 CUDA 版 PyTorch，可用 `--device 0` 强制使用第 0 张显卡。`runs/` 和 `models/` 不提交到 Git。
+
+当前实时预览和策略预览默认使用 5 类 green_bar 模型：`models/bangdream_yolo_m4_green_bar.pt`；如需临时回退 flick 旧模型，可显式传 `--model models/bangdream_yolo_m4_flick.pt`。
 
 启动实时识别预览窗口（只显示检测框，不会触控）：
 

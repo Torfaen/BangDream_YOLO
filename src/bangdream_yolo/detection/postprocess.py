@@ -15,6 +15,7 @@ CLASS_NAMES = {
     1: "skill",
     2: "flick",
     3: "green_note",
+    4: "green_bar",
 }
 
 

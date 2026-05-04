@@ -24,6 +24,7 @@ DEFAULT_COLORS = {
     1: (0, 215, 255),
     2: (255, 80, 220),
     3: (80, 255, 80),
+    4: (60, 255, 180),
 }
 
 TYPE_COLORS = {
@@ -31,6 +32,7 @@ TYPE_COLORS = {
     "skill": DEFAULT_COLORS[1],
     "flick": DEFAULT_COLORS[2],
     "green_note": DEFAULT_COLORS[3],
+    "green_bar": DEFAULT_COLORS[4],
 }
 
 
@@ -202,7 +204,7 @@ def main() -> int:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     parser = argparse.ArgumentParser(description="Live MuMu YOLO detection preview.")
-    parser.add_argument("--model", type=Path, default=Path("models/bangdream_yolo_m4.pt"))
+    parser.add_argument("--model", type=Path, default=Path("models/bangdream_yolo_m4_green_bar.pt"))
     parser.add_argument("--conf", type=float, default=0.25, help="YOLO confidence threshold.")
     parser.add_argument("--imgsz", type=int, default=640, help="YOLO inference image size.")
     parser.add_argument(
