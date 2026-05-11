@@ -14,6 +14,7 @@ from bangdream_yolo.input.minitouch import (
     MinitouchBanner,
     MinitouchClient,
     MinitouchError,
+    parse_adb_forward_port,
     parse_minitouch_banner,
 )
 from bangdream_yolo.input.pointer_pool import PointerPool
@@ -33,6 +34,7 @@ def tracked_note(
     eta_seconds: float | None = 0.040,
     track_y: float = 0.90,
     history_len: int = 1,
+    track_x: float | None = None,
 ) -> TrackedNote:
     """Build one tracked note ready for scheduler tests."""
 
@@ -42,7 +44,7 @@ def tracked_note(
         bbox=(0.0, 0.0, 10.0, 10.0),
         center_x=5.0,
         center_y=5.0,
-        track_x=(lane + 0.5) / 7,
+        track_x=track_x if track_x is not None else (lane + 0.5) / 7,
         track_y=track_y,
         confidence=0.9,
     )
@@ -175,6 +177,11 @@ class MinitouchDisconnectTests(unittest.TestCase):
         self.assertEqual(banner.max_y, 1280)
         self.assertEqual(banner.max_pressure, 255)
         self.assertEqual(banner.pid, 1234)
+
+    def test_parse_adb_forward_allocated_port(self) -> None:
+        self.assertEqual(parse_adb_forward_port("39123\n"), 39123)
+        self.assertEqual(parse_adb_forward_port("noise 39123 extra\n"), 39123)
+        self.assertIsNone(parse_adb_forward_port(""))
 
     def test_format_down_rejects_out_of_bounds_values(self) -> None:
         client = object.__new__(MinitouchClient)
@@ -477,15 +484,35 @@ class PolicySchedulerTests(unittest.TestCase):
         start = scheduler.update(
             [
                 tracked_note(50, "green_bar", lane=2, eta_seconds=None, track_y=1.0),
-                tracked_note(5, "green_note", lane=2, eta_seconds=0.040),
+                tracked_note(5, "green_note", lane=2, eta_seconds=0.040, track_y=1.0),
             ],
             now=0.0,
         )
         scheduler.update([tracked_note(50, "green_bar", lane=2, eta_seconds=None, track_y=1.0)], now=0.050)
-        held = scheduler.update([tracked_note(5, "green_note", lane=2, eta_seconds=0.040)], now=0.100)
+        held = scheduler.update([tracked_note(5, "green_note", lane=2, eta_seconds=0.040, track_y=1.0)], now=0.100)
         release = scheduler.update([tracked_note(6, "green_note", lane=2, eta_seconds=0.040)], now=0.120)
 
         self.assertEqual(action_kinds(start), ["down", "commit"])
+        self.assertEqual(held.actions, [])
+        self.assertEqual(action_kinds(release), ["up", "commit"])
+
+    def test_far_same_lane_green_note_is_not_start_echo(self) -> None:
+        scheduler = PolicyScheduler(LANE_TOUCHES, SchedulerConfig())
+        start_bar = tracked_note(152, "green_bar", lane=3, eta_seconds=None, track_y=0.975, track_x=0.475)
+        start_echo = tracked_note(137, "green_note", lane=3, eta_seconds=0.005, track_y=0.977, track_x=0.472)
+        future_terminal = tracked_note(149, "green_note", lane=3, eta_seconds=0.180, track_y=0.652, track_x=0.469)
+
+        scheduler.update([start_bar, start_echo, future_terminal], now=0.0)
+        scheduler.update([tracked_note(152, "green_bar", lane=3, eta_seconds=None, track_y=1.0, track_x=0.475)], now=0.050)
+        held = scheduler.update(
+            [tracked_note(137, "green_note", lane=3, eta_seconds=0.040, track_y=1.0, track_x=0.475)],
+            now=0.100,
+        )
+        release = scheduler.update(
+            [tracked_note(149, "green_note", lane=3, eta_seconds=0.040, track_y=1.0, track_x=0.475, history_len=6)],
+            now=0.120,
+        )
+
         self.assertEqual(held.actions, [])
         self.assertEqual(action_kinds(release), ["up", "commit"])
 

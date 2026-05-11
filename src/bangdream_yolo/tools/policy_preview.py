@@ -21,6 +21,7 @@ from bangdream_yolo.policy.scheduler import (
     TouchAction,
     lane_touch_map,
 )
+from bangdream_yolo.tools.debug_recorder import DebugRecorder
 from bangdream_yolo.tools.live_preview import (
     create_window,
     current_window_image_size,
@@ -125,6 +126,7 @@ def build_scheduler_config(args: argparse.Namespace) -> SchedulerConfig:
         green_slot_match_lanes=args.green_slot_match_lanes,
         green_bar_follow_lanes=args.green_bar_follow_lanes,
         green_terminal_arm_seconds=args.green_terminal_arm_seconds,
+        green_start_echo_track_y=args.green_start_echo_track_y,
         pressure=args.pressure,
         max_pointers=args.max_pointers,
     )
@@ -163,8 +165,18 @@ def main() -> int:
     parser.add_argument("--green-slot-match-lanes", type=float, default=0.75)
     parser.add_argument("--green-bar-follow-lanes", type=float, default=1.35)
     parser.add_argument("--green-terminal-arm-seconds", type=float, default=0.080)
+    parser.add_argument("--green-start-echo-track-y", type=float, default=0.080)
     parser.add_argument("--pressure", type=int, default=100)
     parser.add_argument("--max-pointers", type=int, default=10)
+    parser.add_argument("--debug-log", action="store_true", help="Write structured debug logs under --debug-log-dir.")
+    parser.add_argument("--debug-log-dir", type=Path, default=Path("logs"), help="Debug log root directory.")
+    parser.add_argument(
+        "--debug-log-screenshots",
+        choices=("event", "all", "none"),
+        default="event",
+        help="Save debug screenshots for event frames, all sampled frames, or none.",
+    )
+    parser.add_argument("--debug-log-every", type=int, default=1, help="Screenshot interval when using --debug-log-screenshots all.")
     args = parser.parse_args()
 
     if not args.model.exists():
@@ -200,6 +212,28 @@ def main() -> int:
     fallback_window_width = 320
     fallback_window_height = 180
     client: MinitouchClient | None = None
+    debug_recorder: DebugRecorder | None = None
+
+    if args.debug_log:
+        debug_recorder = DebugRecorder(
+            args.debug_log_dir,
+            screenshot_mode=args.debug_log_screenshots,
+            screenshot_every=args.debug_log_every,
+        )
+        debug_recorder.write_meta(
+            {
+                "tool": "policy_preview",
+                "model": str(args.model),
+                "calibration": str(args.calibration),
+                "conf": args.conf,
+                "imgsz": args.imgsz,
+                "device": args.device,
+                "touch_enabled": touch_enabled,
+                "duration": args.duration,
+                "max_fps": args.max_fps,
+            }
+        )
+        print(f"[debug] logging to {debug_recorder.session_dir}")
 
     create_window(args.window_name, fallback_window_width, fallback_window_height, args.topmost)
     mode_text = "TOUCH ON (--enable-touch)" if touch_enabled else "dry-run"
@@ -215,7 +249,7 @@ def main() -> int:
                 remote_path=config.minitouch_remote_path,
             )
             client.start()
-            print(f"[minitouch] {client.banner.describe()}")
+            print(f"[minitouch] local port={client.port}, {client.banner.describe()}")
 
         with NemuIpc(config.mumu_path, config.instance_id, config.display_id) as ipc:
             resized_window = False
@@ -238,6 +272,7 @@ def main() -> int:
                     fallback_window_height = window_height
                     resized_window = True
 
+                raw_frame = frame.copy() if debug_recorder is not None else None
                 result = model.predict(frame, **predict_kwargs)[0]
                 detections = postprocess_detections(result, calibration, args.conf)
                 tracks = tracker.update(detections, loop_start)
@@ -265,6 +300,21 @@ def main() -> int:
                     last_fps_update = now
 
                 key = cv2.waitKey(1) & 0xFF
+                manual_snapshot = key == ord("s")
+                if debug_recorder is not None:
+                    debug_recorder.record_frame(
+                        frame_index=frame_count,
+                        timestamp=loop_start,
+                        fps=fps,
+                        touch_enabled=touch_enabled,
+                        detections=detections,
+                        tracks=tracks,
+                        policy_result=policy_result,
+                        green_holds=scheduler.debug_green_holds(),
+                        raw_frame=raw_frame,
+                        overlay_frame=frame,
+                        manual_snapshot=manual_snapshot,
+                    )
                 if key in (27, ord("q")):
                     break
 
@@ -281,6 +331,8 @@ def main() -> int:
         apply_release_actions(client, release_actions)
         if client is not None:
             client.close()
+        if debug_recorder is not None:
+            debug_recorder.close()
         cv2.destroyAllWindows()
 
     elapsed = time.perf_counter() - start

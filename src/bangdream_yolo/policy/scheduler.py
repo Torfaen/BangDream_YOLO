@@ -29,6 +29,7 @@ class SchedulerConfig:
     green_slot_match_lanes: float = 0.75
     green_bar_follow_lanes: float = 1.35
     green_terminal_arm_seconds: float = 0.080
+    green_start_echo_track_y: float = 0.080
     pressure: int = 100
     max_pointers: int = 10
 
@@ -48,11 +49,25 @@ class TouchAction:
 
 
 @dataclass(frozen=True)
+class PolicyDebugEvent:
+    """One structured policy event for debug logging."""
+
+    kind: str
+    reason: str
+    track_id: int | None = None
+    note_type: str | None = None
+    lane: int | None = None
+    pointer_id: int | None = None
+    detail: dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class PolicyResult:
     """Scheduler output for one frame."""
 
     actions: list[TouchAction]
     warnings: list[str]
+    debug_events: list[PolicyDebugEvent] = field(default_factory=list)
 
 
 @dataclass
@@ -112,27 +127,42 @@ class PolicyScheduler:
 
         actions: list[TouchAction] = []
         warnings: list[str] = []
-        actions.extend(self._release_due(now, warnings))
+        debug_events: list[PolicyDebugEvent] = []
+        actions.extend(self._release_due(now, warnings, debug_events))
 
         visible_green_pointers: set[int] = set()
         green_bars = [track for track in tracks if track.note_type == "green_bar"]
         followable_green_bars = [track for track in green_bars if self._is_followable_green_bar(track)]
         used_green_bars: set[int] = set()
-        self._follow_green_holds_by_id(followable_green_bars, now, actions, visible_green_pointers, used_green_bars)
-        self._follow_green_holds_by_distance(followable_green_bars, now, actions, visible_green_pointers, used_green_bars)
+        self._follow_green_holds_by_id(
+            followable_green_bars,
+            now,
+            actions,
+            visible_green_pointers,
+            used_green_bars,
+            debug_events,
+        )
+        self._follow_green_holds_by_distance(
+            followable_green_bars,
+            now,
+            actions,
+            visible_green_pointers,
+            used_green_bars,
+            debug_events,
+        )
 
         flick_tracks = [track for track in tracks if track.note_type == "flick"]
-        self._handle_green_terminal_flicks(flick_tracks, now, actions)
+        self._handle_green_terminal_flicks(flick_tracks, now, actions, debug_events)
         green_notes = [track for track in tracks if track.note_type == "green_note"]
-        self._release_green_note_terminals(green_notes, now, actions, visible_green_pointers)
+        self._release_green_note_terminals(green_notes, now, actions, visible_green_pointers, debug_events)
 
         playable_tracks = [track for track in tracks if track.note_type not in ("green_bar", "green_note")]
         for track in sorted(playable_tracks, key=self._track_sort_key):
             self._handle_discrete(track, now, actions, warnings)
 
-        self._start_green_holds(followable_green_bars, green_notes, now, actions, warnings, used_green_bars)
-        actions.extend(self._release_stale_green(now))
-        return PolicyResult(actions=actions, warnings=warnings)
+        self._start_green_holds(followable_green_bars, green_notes, now, actions, warnings, used_green_bars, debug_events)
+        actions.extend(self._release_stale_green(now, debug_events))
+        return PolicyResult(actions=actions, warnings=warnings, debug_events=debug_events)
 
     def release_all(self) -> list[TouchAction]:
         """Release every active pointer for shutdown or panic-stop paths."""
@@ -180,6 +210,7 @@ class PolicyScheduler:
         actions: list[TouchAction],
         visible_green_pointers: set[int],
         used_tracks: set[int],
+        debug_events: list[PolicyDebugEvent],
     ) -> None:
         """Refresh green holds whose current bottom green_bar kept the same track id."""
 
@@ -188,7 +219,16 @@ class PolicyScheduler:
             track = tracks_by_id.get(state.follow_track_id)
             if track is None:
                 continue
-            self._move_green_hold_to_bar(state, slot, track, now, actions, visible_green_pointers)
+            self._move_green_hold_to_bar(
+                state,
+                slot,
+                track,
+                now,
+                actions,
+                visible_green_pointers,
+                debug_events,
+                "same_track",
+            )
             used_tracks.add(track.track_id)
 
     def _follow_green_holds_by_distance(
@@ -198,6 +238,7 @@ class PolicyScheduler:
         actions: list[TouchAction],
         visible_green_pointers: set[int],
         used_tracks: set[int],
+        debug_events: list[PolicyDebugEvent],
     ) -> None:
         """Reconnect active green holds when tracker briefly changes the bottom bar id."""
 
@@ -220,7 +261,16 @@ class PolicyScheduler:
                 continue
             if track.track_id in used_tracks:
                 continue
-            self._move_green_hold_to_bar(state, slot, track, now, actions, visible_green_pointers)
+            self._move_green_hold_to_bar(
+                state,
+                slot,
+                track,
+                now,
+                actions,
+                visible_green_pointers,
+                debug_events,
+                "nearby_track",
+            )
             used_pointers.add(state.pointer_id)
             used_tracks.add(track.track_id)
 
@@ -232,6 +282,7 @@ class PolicyScheduler:
         actions: list[TouchAction],
         warnings: list[str],
         used_tracks: set[int],
+        debug_events: list[PolicyDebugEvent],
     ) -> None:
         """Create new green holds from unused bottom green_bar tracks."""
 
@@ -259,6 +310,20 @@ class PolicyScheduler:
             used_tracks.add(track.track_id)
             actions.append(self._down_action(slot))
             actions.append(self._commit_action())
+            debug_events.append(
+                PolicyDebugEvent(
+                    kind="green_hold_start",
+                    reason="green_bar_ready",
+                    track_id=track.track_id,
+                    note_type=track.note_type,
+                    lane=track.lane,
+                    pointer_id=slot.pointer_id,
+                    detail={
+                        "touch": [x, y],
+                        "ignored_terminal_track_ids": sorted(self.green_holds[slot.pointer_id].ignored_terminal_track_ids),
+                    },
+                )
+            )
 
     def _move_green_hold_to_bar(
         self,
@@ -268,6 +333,8 @@ class PolicyScheduler:
         now: float,
         actions: list[TouchAction],
         visible_green_pointers: set[int],
+        debug_events: list[PolicyDebugEvent],
+        reason: str,
     ) -> None:
         """Move one held green pointer to the current bottom green_bar center."""
 
@@ -288,6 +355,21 @@ class PolicyScheduler:
         if old_point != (x, y):
             actions.append(self._move_action(moved))
             actions.append(self._commit_action())
+            debug_events.append(
+                PolicyDebugEvent(
+                    kind="green_hold_follow",
+                    reason=reason,
+                    track_id=track.track_id,
+                    note_type=track.note_type,
+                    lane=track.lane,
+                    pointer_id=state.pointer_id,
+                    detail={
+                        "owner_track_id": state.owner_track_id,
+                        "old_touch": list(old_point),
+                        "new_touch": [x, y],
+                    },
+                )
+            )
 
     def _is_followable_green_bar(self, track: TrackedNote) -> bool:
         """Return True for currently visible green bars close to the judgment line."""
@@ -303,6 +385,7 @@ class PolicyScheduler:
         now: float,
         actions: list[TouchAction],
         visible_green_pointers: set[int],
+        debug_events: list[PolicyDebugEvent],
     ) -> None:
         """Release green holds when a green_note endpoint reaches the line."""
 
@@ -313,38 +396,99 @@ class PolicyScheduler:
             if match is None:
                 continue
             state, slot = match
-            if self._should_ignore_green_note_terminal(track, state, slot, visible_green_pointers):
+            ignore_reason = self._green_note_terminal_ignore_reason(track, state, slot, visible_green_pointers)
+            if ignore_reason is not None:
                 state.last_seen = now
+                debug_events.append(
+                    PolicyDebugEvent(
+                        kind="green_note_terminal_ignored",
+                        reason=ignore_reason,
+                        track_id=track.track_id,
+                        note_type=track.note_type,
+                        lane=track.lane,
+                        pointer_id=state.pointer_id,
+                        detail=self._green_note_terminal_detail(track, state, slot),
+                    )
+                )
                 continue
             if not self._is_green_terminal_ready(track):
+                debug_events.append(
+                    PolicyDebugEvent(
+                        kind="green_note_terminal_ignored",
+                        reason="not_ready",
+                        track_id=track.track_id,
+                        note_type=track.note_type,
+                        lane=track.lane,
+                        pointer_id=state.pointer_id,
+                        detail=self._green_note_terminal_detail(track, state, slot),
+                    )
+                )
                 continue
 
             self.triggered_tracks.add(track.track_id)
-            self._release_green_hold(state, actions)
+            debug_events.append(
+                PolicyDebugEvent(
+                    kind="green_note_terminal_release",
+                    reason="ready",
+                    track_id=track.track_id,
+                    note_type=track.note_type,
+                    lane=track.lane,
+                    pointer_id=state.pointer_id,
+                    detail=self._green_note_terminal_detail(track, state, slot),
+                )
+            )
+            self._release_green_hold(state, actions, debug_events, "green_note_terminal")
 
-    def _should_ignore_green_note_terminal(
+    def _green_note_terminal_ignore_reason(
         self,
         track: TrackedNote,
         state: GreenHoldState,
         slot: PointerSlot,
         visible_green_pointers: set[int],
-    ) -> bool:
-        """Return True when a green_note is probably the active hold itself."""
+    ) -> str | None:
+        """Return why a green_note cannot act as a terminal, or None when allowed."""
 
         if track.track_id in state.ignored_terminal_track_ids:
-            return True
+            return "start_echo"
         if not state.has_followed_green_bar:
-            return True
+            return "pre_bar_transition"
         if state.pointer_id not in visible_green_pointers:
-            return False
+            return None
         if slot.x is None or slot.y is None:
-            return False
+            return None
 
         track_x, track_y = self._track_touch(track)
         distance = math.hypot(slot.x - track_x, slot.y - track_y)
         if distance > self._green_slot_match_distance_limit():
-            return False
-        return not self._is_stable_green_note_terminal(track)
+            return None
+        if self._is_stable_green_note_terminal(track):
+            return None
+        return "near_visible_unstable_echo"
+
+    def _green_note_terminal_detail(
+        self,
+        track: TrackedNote,
+        state: GreenHoldState,
+        slot: PointerSlot,
+    ) -> dict[str, object]:
+        """Return debug fields for one green_note terminal decision."""
+
+        track_touch = self._track_touch(track)
+        slot_touch = [slot.x, slot.y]
+        distance = None
+        if slot.x is not None and slot.y is not None:
+            distance = math.hypot(slot.x - track_touch[0], slot.y - track_touch[1])
+        return {
+            "eta_seconds": track.eta_seconds,
+            "history_len": len(track.history),
+            "track_y": track.latest.track_y,
+            "track_touch": list(track_touch),
+            "slot_touch": slot_touch,
+            "distance": distance,
+            "owner_track_id": state.owner_track_id,
+            "follow_track_id": state.follow_track_id,
+            "has_followed_green_bar": state.has_followed_green_bar,
+        }
 
     def _is_stable_green_note_terminal(self, track: TrackedNote) -> bool:
         """Return True when a green_note has enough tracking history to be a real endpoint."""
@@ -361,14 +505,14 @@ class PolicyScheduler:
     def _green_notes_near_track(self, track: TrackedNote, green_notes: list[TrackedNote]) -> set[int]:
         """Return same-frame green_note ids that overlap the green_bar start."""
 
-        start_x, start_y = self._track_touch(track)
         ignored_ids: set[int] = set()
-        distance_limit = self._green_slot_match_distance_limit()
+        track_x_limit = self.config.green_slot_match_lanes / max(1, len(self.lane_touches))
         for note in green_notes:
             if note.missed_frames != 0:
                 continue
-            note_x, note_y = self._track_touch(note)
-            if math.hypot(start_x - note_x, start_y - note_y) <= distance_limit:
+            track_x_delta = abs(track.latest.track_x - note.latest.track_x)
+            track_y_delta = abs(track.latest.track_y - note.latest.track_y)
+            if track_x_delta <= track_x_limit and track_y_delta <= self.config.green_start_echo_track_y:
                 ignored_ids.add(note.track_id)
         return ignored_ids
 
@@ -377,6 +521,7 @@ class PolicyScheduler:
         tracks: list[TrackedNote],
         now: float,
         actions: list[TouchAction],
+        debug_events: list[PolicyDebugEvent],
     ) -> None:
         """Reuse held green pointers for flick endpoints."""
 
@@ -390,7 +535,7 @@ class PolicyScheduler:
             if match is None:
                 continue
             state, slot = match
-            self._schedule_green_terminal_flick(state, slot, track, now, actions)
+            self._schedule_green_terminal_flick(state, slot, track, now, actions, debug_events)
 
     def _schedule_green_terminal_flick(
         self,
@@ -399,6 +544,7 @@ class PolicyScheduler:
         track: TrackedNote,
         now: float,
         actions: list[TouchAction],
+        debug_events: list[PolicyDebugEvent],
     ) -> None:
         """Reuse an already held green pointer for a flick endpoint."""
 
@@ -411,6 +557,22 @@ class PolicyScheduler:
 
         self.green_holds.pop(state.pointer_id, None)
         self.triggered_tracks.add(track.track_id)
+        debug_events.append(
+            PolicyDebugEvent(
+                kind="green_terminal_flick",
+                reason="ready",
+                track_id=track.track_id,
+                note_type=track.note_type,
+                lane=track.lane,
+                pointer_id=state.pointer_id,
+                detail={
+                    "owner_track_id": state.owner_track_id,
+                    "start_touch": [start_x, start_y],
+                    "flick_end": list(flick_end_point(start_x, start_y, self.config.flick_distance)),
+                    "eta_seconds": track.eta_seconds,
+                },
+            )
+        )
         self.pending_releases.append(
             PendingRelease(
                 track_id=state.owner_track_id,
@@ -476,7 +638,12 @@ class PolicyScheduler:
         actions.append(self._down_action(slot))
         actions.append(self._commit_action())
 
-    def _release_due(self, now: float, warnings: list[str]) -> list[TouchAction]:
+    def _release_due(
+        self,
+        now: float,
+        warnings: list[str],
+        debug_events: list[PolicyDebugEvent],
+    ) -> list[TouchAction]:
         actions: list[TouchAction] = []
         remaining: list[PendingRelease] = []
         for pending in self.pending_releases:
@@ -498,6 +665,17 @@ class PolicyScheduler:
             if released is not None:
                 actions.append(self._up_action(released))
                 actions.append(self._commit_action())
+                debug_events.append(
+                    PolicyDebugEvent(
+                        kind="pending_release",
+                        reason="due",
+                        track_id=pending.track_id,
+                        note_type=pending.note_type,
+                        lane=pending.lane,
+                        pointer_id=released.pointer_id,
+                        detail={"due_time": pending.due_time},
+                    )
+                )
 
         self.pending_releases = remaining
         return actions
@@ -540,19 +718,25 @@ class PolicyScheduler:
         y = start_y + (end_y - start_y) * progress
         return int(round(x)), int(round(y))
 
-    def _release_stale_green(self, now: float) -> list[TouchAction]:
+    def _release_stale_green(
+        self,
+        now: float,
+        debug_events: list[PolicyDebugEvent],
+    ) -> list[TouchAction]:
         actions: list[TouchAction] = []
         for state, _slot in self._active_green_hold_slots():
             if now - state.last_seen <= self.config.green_release_grace:
                 continue
 
-            self._release_green_hold(state, actions)
+            self._release_green_hold(state, actions, debug_events, "stale_green_bar")
         return actions
 
     def _release_green_hold(
         self,
         state: GreenHoldState,
         actions: list[TouchAction],
+        debug_events: list[PolicyDebugEvent] | None = None,
+        reason: str = "release",
     ) -> None:
         """Release one active green hold and clear its state."""
 
@@ -561,6 +745,22 @@ class PolicyScheduler:
         if released is not None:
             actions.append(self._up_action(released))
             actions.append(self._commit_action())
+            if debug_events is not None:
+                debug_events.append(
+                    PolicyDebugEvent(
+                        kind="green_hold_release",
+                        reason=reason,
+                        track_id=state.owner_track_id,
+                        note_type="green_bar",
+                        lane=released.lane,
+                        pointer_id=state.pointer_id,
+                        detail={
+                            "follow_track_id": state.follow_track_id,
+                            "last_seen": state.last_seen,
+                            "has_followed_green_bar": state.has_followed_green_bar,
+                        },
+                    )
+                )
 
     def _active_green_hold_slots(self) -> list[tuple[GreenHoldState, PointerSlot]]:
         """Return active green hold states with their pointer slots."""
@@ -573,6 +773,26 @@ class PolicyScheduler:
                 continue
             active.append((state, slot))
         return active
+
+    def debug_green_holds(self) -> list[dict[str, object]]:
+        """Return active green hold state for structured debug logs."""
+
+        holds: list[dict[str, object]] = []
+        for state, slot in self._active_green_hold_slots():
+            holds.append(
+                {
+                    "pointer_id": state.pointer_id,
+                    "owner_track_id": state.owner_track_id,
+                    "follow_track_id": state.follow_track_id,
+                    "lane": slot.lane,
+                    "touch": [slot.x, slot.y],
+                    "started_at": state.started_at,
+                    "last_seen": state.last_seen,
+                    "has_followed_green_bar": state.has_followed_green_bar,
+                    "ignored_terminal_track_ids": sorted(state.ignored_terminal_track_ids),
+                }
+            )
+        return holds
 
     def _slot_for_green_hold(self, state: GreenHoldState) -> PointerSlot | None:
         """Return the pointer slot owned by one green hold."""
