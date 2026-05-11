@@ -56,7 +56,7 @@ def main() -> int:
         port=config.minitouch_port,
         remote_path=config.minitouch_remote_path,
     ) as client:
-        print(f"[minitouch] {client.banner.describe()}")
+        print(f"[minitouch] local port={client.port}, {client.banner.describe()}")
         touch_width = client.banner.max_x if client.banner.max_x is not None else width
         touch_height = client.banner.max_y if client.banner.max_y is not None else height
         ratios = (0.50,) if args.single else (0.22, 0.36, 0.50, 0.64, 0.78)

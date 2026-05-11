@@ -19,6 +19,7 @@ MINITOUCH_LOCAL_CANDIDATES = (
     Path("third_party/minitouch/x86/minitouch"),
 )
 DEFAULT_TOUCH_PRESSURE = 100
+MINITOUCH_ABSTRACT_SOCKET = "localabstract:minitouch"
 
 
 class MinitouchError(RuntimeError):
@@ -173,6 +174,19 @@ def find_minitouch_binary(project_root: Path) -> Path | None:
     return None
 
 
+def parse_adb_forward_port(output: str) -> int | None:
+    """Return the first TCP port number printed by ``adb forward tcp:0``."""
+
+    for token in output.replace("\r", "\n").split():
+        try:
+            port = int(token)
+        except ValueError:
+            continue
+        if 0 < port <= 65535:
+            return port
+    return None
+
+
 class MinitouchClient:
     """Start minitouch through adb and send the plain text touch protocol."""
 
@@ -182,7 +196,7 @@ class MinitouchClient:
         mumu_path: Path,
         adb_serial: str,
         project_root: Path,
-        port: int = 1111,
+        port: int | None = None,
         remote_path: str = "/data/local/tmp/minitouch",
     ):
         self.mumu_path = Path(mumu_path)
@@ -259,8 +273,9 @@ class MinitouchClient:
 
         self.stop_remote_process()
         self.push_binary()
-        self.adb("forward", "--remove", f"tcp:{self.port}", check=False)
-        self.adb("forward", f"tcp:{self.port}", "localabstract:minitouch")
+        self._setup_forward()
+        if self.port is None:
+            raise MinitouchError("minitouch local port 尚未分配")
 
         self.process = subprocess.Popen(
             [self.adb_path, "-s", self.adb_serial, "shell", self.remote_path],
@@ -297,6 +312,55 @@ class MinitouchClient:
 
         self.close()
         raise MinitouchError(f"连接 minitouch socket 失败：{last_error}")
+
+    def _setup_forward(self) -> None:
+        """Forward minitouch to a fixed port or an ADB-allocated free port."""
+
+        if self.port is not None:
+            self.adb("forward", "--remove", f"tcp:{self.port}", check=False)
+            self.adb("forward", f"tcp:{self.port}", MINITOUCH_ABSTRACT_SOCKET)
+            return
+
+        completed = self.adb("forward", "tcp:0", MINITOUCH_ABSTRACT_SOCKET, check=False)
+        if completed.returncode == 0:
+            allocated_port = parse_adb_forward_port(completed.stdout + completed.stderr)
+            if allocated_port is None:
+                allocated_port = self._latest_forwarded_minitouch_port()
+            if allocated_port is not None:
+                self.port = allocated_port
+                return
+
+        fallback_port = self._pick_free_local_port()
+        self.adb("forward", "--remove", f"tcp:{fallback_port}", check=False)
+        self.adb("forward", f"tcp:{fallback_port}", MINITOUCH_ABSTRACT_SOCKET)
+        self.port = fallback_port
+
+    def _latest_forwarded_minitouch_port(self) -> int | None:
+        """Return the last forwarded minitouch TCP port for the current device."""
+
+        completed = self.adb("forward", "--list", check=False)
+        if completed.returncode != 0:
+            return None
+
+        ports: list[int] = []
+        for line in (completed.stdout + completed.stderr).splitlines():
+            parts = line.split()
+            if len(parts) < 3 or parts[0] != self.adb_serial or parts[2] != MINITOUCH_ABSTRACT_SOCKET:
+                continue
+            if not parts[1].startswith("tcp:"):
+                continue
+            try:
+                ports.append(int(parts[1].split(":", 1)[1]))
+            except ValueError:
+                continue
+        return ports[-1] if ports else None
+
+    def _pick_free_local_port(self) -> int:
+        """Ask the OS for one currently free localhost TCP port."""
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind(("127.0.0.1", 0))
+            return int(probe.getsockname()[1])
 
     def _read_banner(self) -> None:
         """Read and parse the initial minitouch banner."""
@@ -492,7 +556,8 @@ class MinitouchClient:
             self.sock.close()
             self.sock = None
 
-        self.adb("forward", "--remove", f"tcp:{self.port}", check=False)
+        if self.port is not None:
+            self.adb("forward", "--remove", f"tcp:{self.port}", check=False)
 
         if self.process is not None:
             self.process.terminate()

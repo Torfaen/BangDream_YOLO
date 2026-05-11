@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 DEFAULT_MUMU_PATH = Path(r"C:\Program Files\Netease\MuMu")
-DEFAULT_ADB_SERIAL = "127.0.0.1:16384"
+DEFAULT_ADB_SERIAL = "emulator-5554"
 
 
 @dataclass(frozen=True)
@@ -25,7 +25,7 @@ class AppConfig:
     adb_serial: str = DEFAULT_ADB_SERIAL
     screen_width: int = 1280
     screen_height: int = 720
-    minitouch_port: int = 1111
+    minitouch_port: int | None = None
     minitouch_remote_path: str = "/data/local/tmp/minitouch"
     log_level: str = "INFO"
 
@@ -33,6 +33,7 @@ class AppConfig:
 def load_config() -> AppConfig:
     """Load config from environment variables with project defaults."""
 
+    minitouch_port = os.getenv("BANGDREAM_MINITOUCH_PORT")
     return AppConfig(
         mumu_path=Path(os.getenv("BANGDREAM_MUMU_PATH", str(DEFAULT_MUMU_PATH))),
         instance_id=int(os.getenv("BANGDREAM_MUMU_INSTANCE_ID", "0")),
@@ -40,7 +41,7 @@ def load_config() -> AppConfig:
         adb_serial=os.getenv("BANGDREAM_ADB_SERIAL", DEFAULT_ADB_SERIAL),
         screen_width=int(os.getenv("BANGDREAM_SCREEN_WIDTH", "1280")),
         screen_height=int(os.getenv("BANGDREAM_SCREEN_HEIGHT", "720")),
-        minitouch_port=int(os.getenv("BANGDREAM_MINITOUCH_PORT", "1111")),
+        minitouch_port=int(minitouch_port) if minitouch_port else None,
         minitouch_remote_path=os.getenv(
             "BANGDREAM_MINITOUCH_REMOTE_PATH", "/data/local/tmp/minitouch"
         ),
