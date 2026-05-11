@@ -232,7 +232,7 @@ python -m bangdream_yolo.tools.policy_preview --device 0 --enable-touch
 
 ### ADB serial 兜底
 
-MuMu 重启或 ADB server 重新枚举后，默认 `127.0.0.1:16384` 可能短暂不在线。m6 真实触控入口复用 `android.py` 的 ADB helper：
+MuMu 重启或 ADB server 重新枚举后，当前脚本默认使用 `emulator-5554`；历史端口 `127.0.0.1:16384` 可能短暂不在线或不再出现。m6 真实触控入口复用 `android.py` 的 ADB helper：
 
 - 优先使用配置的 `BANGDREAM_ADB_SERIAL` / 默认 serial。
 - 如果配置 serial 不在线，但 `adb devices -l` 中只有一个 `device` 状态设备，则自动回退到该设备并打印提示。

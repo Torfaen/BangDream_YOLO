@@ -56,6 +56,7 @@ green_bar_max_track_y = 1.10
 green_slot_match_lanes = 0.75
 green_bar_follow_lanes = 1.35
 green_terminal_arm_seconds = 0.080
+green_start_echo_track_y = 0.080
 green_release_grace = 0.350
 ```
 
@@ -77,6 +78,11 @@ green_release_grace = 0.350
 如果 track_id 属于 state.ignored_terminal_track_ids：
   忽略，视为创建 hold 同帧的起点回声。
 
+起点回声只记录与起点 green_bar 的真实轨道位置接近的 green_note：
+  abs(note.track_x - green_bar.track_x) <= green_slot_match_lanes / lane_count
+  abs(note.track_y - green_bar.track_y) <= green_start_echo_track_y
+  不使用 _track_touch 投影后的触控点距离，避免把同轨道远处后续 green_note 误记为起点回声。
+
 如果 state.has_followed_green_bar 仍为 False：
   忽略并刷新 last_seen，视为刚按下到第一段 green_bar 接上前的 green_note 过渡视觉。
 
@@ -95,6 +101,7 @@ green_release_grace = 0.350
 - 短暂换 track id 的同一底部 `green_bar` 不会重新 `down`。
 - 同位置/附近的 `green_bar` 不会释放 active green hold。
 - 创建 hold 同帧与 `green_bar` 重叠的 `green_note` 不会在后续帧把 hold 释放。
+- 与起点 `green_bar` 同轨道但 `track_y` 相距较远的后续 `green_note` 不会被记为起点回声。
 - 刚按下后、第一段 `green_bar` 接上前，判定线附近持续出现的 `green_note` 不会释放 active green hold。
 - active green hold 本帧仍跟随到底部 `green_bar` 时，同位置/近距离的新 `green_note track_id` 不会释放该 hold。
 - 已接上过 `green_bar` 后，连续追踪且 ETA ready 的真正 `green_note` 终点可以释放 active green hold。

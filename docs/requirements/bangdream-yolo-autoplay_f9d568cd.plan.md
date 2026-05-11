@@ -110,7 +110,7 @@ BangDream_yolo/
 ## 关键实现要点
 
 - **nemu_ipc 封装**：参考 [LmeSzinc/AzurLaneAutoScript](https://github.com/LmeSzinc/AzurLaneAutoScript) 的 [`module/device/method/nemu_ipc.py`](https://github.com/LmeSzinc/AzurLaneAutoScript/blob/master/module/device/method/nemu_ipc.py)，抽出 `NemuIpcImpl` 单文件，去掉 ALAS 依赖。注意输出图像需要 `cv2.flip(img, 0)` 上下翻转 + `cvtColor(BGRA2BGR)`；坐标到 nemu 内部需做 `(x, y) -> (height - y, x)` 旋转。
-- **minitouch 协议**：socket 文本协议 `d <id> <x> <y> <pressure>\n` / `u <id>\n` / `m <id> <x> <y> <pressure>\n`，用 `c\n` 提交一帧。同帧多指 down 合并提交以保证同步。预先 `adb push` minitouch 二进制到 `/data/local/tmp/`，`adb forward tcp:1111 localabstract:minitouch`。可直接复用 [EvATive7/minitouch](https://github.com/EvATive7/minitouch) 的二进制（autodori 同款）。
+- **minitouch 协议**：socket 文本协议 `d <id> <x> <y> <pressure>\n` / `u <id>\n` / `m <id> <x> <y> <pressure>\n`，用 `c\n` 提交一帧。同帧多指 down 合并提交以保证同步。预先 `adb push` minitouch 二进制到 `/data/local/tmp/`，默认 `adb forward tcp:0 localabstract:minitouch` 自动分配本地端口。可直接复用 [EvATive7/minitouch](https://github.com/EvATive7/minitouch) 的二进制（autodori 同款）。
 - **外置资源下载**：所有不进 Git 的外置资源（如 minitouch 二进制、后续模型权重、样例素材）统一接入 `python -m bangdream_yolo.tools.fetch_assets`。工具用 Python 标准库下载，按资源清单维护 URL、版本、许可证、目标路径和可选 SHA256；默认跳过已存在文件，支持 `--force` 覆盖。
 - **几何标定**：交互式选 4 点（判定线左/右，远端轨道左/右），求透视矩阵；7 lane 中心通过判定线段 8 等分得到。屏幕 note 中心 → 反投影 → lane id + 屏幕 X（最终下指 X 用判定线那一行的实际 X，避免透视偏移）。
 - **跟踪与 ETA**：按 lane 分桶，新框关联到上一帧最近 Y 且单调下落的 note；用最近 N 帧线性回归估 v_y(px/s)，ETA = (judge_y - y_now) / v_y。允许连续 ≤2 帧丢检续命。绿色 note 的头尾不依赖 YOLO 类别，由连续帧和 pointer 状态推断。

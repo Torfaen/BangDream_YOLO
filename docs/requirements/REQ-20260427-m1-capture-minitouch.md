@@ -90,7 +90,7 @@
 - minitouch 二进制不提交 Git，统一通过 `python -m bangdream_yolo.tools.fetch_assets` 下载到本地目录。
 - 后续所有不适合入 Git 的外置资源（模型权重、第三方二进制、样例素材等）也统一接入同一个 `fetch_assets` 工具，README 只保留这一种主流程。
 - m1 先支持 Windows + MuMu 的 ADB 连接。
-- 使用 m0 已确认的 ADB serial：`127.0.0.1:16384`。
+- 使用 m0 当前脚本默认 ADB serial：`emulator-5554`；如本机枚举为其他 serial，可用 `BANGDREAM_ADB_SERIAL` 覆盖。
 - 使用 MuMu 自带 ADB 优先，找不到再使用 PATH 中的 `adb`。
 
 ### 外置资源下载入口
@@ -121,8 +121,8 @@ minitouch 启动流程：
 2. `adb push` 到 `/data/local/tmp/minitouch`。
 3. `adb shell chmod 755 /data/local/tmp/minitouch`。
 4. `adb shell /data/local/tmp/minitouch` 启动服务。
-5. `adb forward tcp:1111 localabstract:minitouch`。
-6. 本地 socket 连接 `127.0.0.1:1111`。
+5. 默认使用 `adb forward tcp:0 localabstract:minitouch`，让 ADB 自动分配空闲本地端口；仅当显式设置 `BANGDREAM_MINITOUCH_PORT` 时使用固定端口。
+6. 本地 socket 连接 ADB 返回的 `127.0.0.1:<port>`。
 
 minitouch 协议封装：
 
@@ -172,7 +172,7 @@ minitouch 协议封装：
 
 m1 可新增：
 
-- `minitouch_port`，默认 `1111`
+- `minitouch_port`，默认自动分配空闲端口；可用 `BANGDREAM_MINITOUCH_PORT` 固定
 - `minitouch_remote_path`，默认 `/data/local/tmp/minitouch`
 
 如需本地覆盖，仍优先使用环境变量，不引入复杂配置系统。

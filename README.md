@@ -158,7 +158,7 @@ python -m bangdream_yolo.tools.policy_preview --device 0 --topmost --enable-touc
 ## 已确认的本机默认配置
 
 - MuMu 安装根目录：`C:\Program Files\Netease\MuMu`
-- ADB serial：`127.0.0.1:16384`
+- ADB serial：`emulator-5554`
 - MuMu 实例 ID：`0`
 - 推荐 MuMu 分辨率：`1280x720`
 - `external_renderer_ipc.dll` 实测路径：`C:\Program Files\Netease\MuMu\nx_device\12.0\shell\sdk\external_renderer_ipc.dll`
