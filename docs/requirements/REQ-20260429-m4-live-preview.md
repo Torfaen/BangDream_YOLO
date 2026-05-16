@@ -2,12 +2,12 @@
 
 ## 背景/目标
 
-本阶段对应 `m4_train` 的模型效果验证。m4 已经训练出第一版 `models/bangdream_yolo_m4.pt`，需要一个可重复启动的实时预览窗口，用 MuMu `nemu_ipc` 截图并叠加 YOLO 检测框，方便肉眼检查漏检、误检和置信度。
+本阶段对应 `m4_train` 的模型效果验证。当前默认模型为 `models/bangdream_yolo_m4_green_bar.pt`，需要一个可重复启动的实时预览窗口，用 MuMu `nemu_ipc` 截图并叠加 YOLO 检测框，方便肉眼检查漏检、误检和置信度。
 
 目标：
 
 - 用命令启动 OpenCV 预览窗口。
-- 实时显示 `tap`、`skill`、`flick`、`green_note` 检测框。
+- 实时显示 `tap`、`skill`、`flick`、`green_note`、`green_bar` 检测框。
 - 不调用 `minitouch`，不产生任何触控输入。
 
 ## 范围

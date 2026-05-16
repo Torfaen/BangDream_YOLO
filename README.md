@@ -17,7 +17,7 @@
 - 单点/5 指点击测试工具
 - 几何标定工具（4 点标定，输出 `data/calibration.yml`）
 - m3 录制与数据集划分工具
-- m4 训练入口、第一版 4 类模型与实时检测预览窗口
+- m4 训练入口、5 类 green_bar 模型与实时检测预览窗口
 - m5 检测后处理、跨帧追踪与 ETA 调试叠加
 
 本阶段暂不做：
@@ -117,7 +117,7 @@ python -m bangdream_yolo.tools.split_dataset `
 python -m bangdream_yolo.tools.train --epochs 1 --name m4_smoke_e1
 ```
 
-正式训练可改用 `--model yolov8s.pt --epochs 50`，并用 `--copy-best models/bangdream_yolo_m4.pt` 保存 best 权重。GPU 训练需要当前 Python 环境安装 CUDA 版 PyTorch，可用 `--device 0` 强制使用第 0 张显卡。`runs/` 和 `models/` 不提交到 Git。
+正式训练可改用 `--model yolov8s.pt --epochs 50`，并用 `--copy-best models/bangdream_yolo_m4_green_bar.pt` 保存 best 权重。GPU 训练需要当前 Python 环境安装 CUDA 版 PyTorch，可用 `--device 0` 强制使用第 0 张显卡。`runs/` 和 `models/` 不提交到 Git。
 
 当前实时预览和策略预览默认使用 5 类 green_bar 模型：`models/bangdream_yolo_m4_green_bar.pt`；如需临时回退 flick 旧模型，可显式传 `--model models/bangdream_yolo_m4_flick.pt`。
 

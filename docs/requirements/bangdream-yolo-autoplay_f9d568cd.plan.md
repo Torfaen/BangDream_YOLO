@@ -15,22 +15,22 @@ todos:
     content: 里程碑 2：geometry/calibration.py + tools/calibrate.py。交互式选 4 点（判定线左/右、轨道远端左/右），保存透视矩阵与 7 lane 中心到 data/calibration.yml。lane.py 提供 screen_xy<->lane_id 双向映射。
     status: completed
   - id: m3_dataset
-    content: 里程碑 3：tools/record_session.py 录制选曲 PRO/EX 样本并抽帧。用 X-AnyLabeling 手标 4 类 note（tap/skill/flick/green_note），生成 YOLO 格式标签。8:1:1 划分 train/val/test，写 dataset.yaml。
+    content: 里程碑 3：tools/record_session.py 录制选曲 PRO/EX 样本并抽帧。用 X-AnyLabeling 手标 5 类 note（tap/skill/flick/green_note/green_bar），生成 YOLO 格式标签。8:1:1 划分 train/val/test，写 dataset.yaml。
     status: completed
   - id: m4_train
-    content: 里程碑 4：tools/train.py 读取 4 类 data/dataset.yaml，调 yolov8s.pt 预训，imgsz=640，30-50 epochs。评估要求 mAP@0.5 ≥ 0.9，推理 ≤ 20ms (GPU)。导出 best.pt 到 models/。
+    content: 里程碑 4：tools/train.py 读取 5 类 data/dataset.yaml，调 yolov8s.pt 预训，imgsz=640，30-50 epochs。评估要求 mAP@0.5 ≥ 0.9，推理 ≤ 20ms (GPU)。导出 best.pt 到 models/。
     status: completed
   - id: m5_tracker
-    content: 里程碑 5：detection/postprocess.py 将 YOLO 框转为 Note 实体（lane, type, y, conf；绿色统一为 green_note）。tracker/note_tracker.py 按 lane 分桶跨帧关联，线性回归估 v_y 与 ETA，支持 ≤2 帧丢检续命。
+    content: 里程碑 5：detection/postprocess.py 将 YOLO 框转为 Note 实体（lane, type, y, conf；绿色包含 green_note 与 green_bar）。tracker/note_tracker.py 按 lane 分桶跨帧关联，线性回归估 v_y 与 ETA，支持 ≤2 帧丢检续命。
     status: completed
   - id: m6_policy
-    content: 里程碑 6：policy/scheduler.py + input/pointer_pool.py。实现 pointer 池；tap/skill/flick/green_note 调度；按 ETA - latency_offset 触发 minitouch，下指/保持/移动/释放由绿色 note 的连续帧和 pointer 状态推断。
+    content: 里程碑 6：policy/scheduler.py + input/pointer_pool.py。实现 pointer 池；tap/skill/flick/green_note/green_bar 调度；按 ETA - latency_offset 触发 minitouch，绿色由 green_bar 跟随、green_note/flick 终点释放。
     status: in_progress
   - id: m7_loop
-    content: 里程碑 7：src/bangdream_yolo/main.py 闭环主循环；viz/overlay.py 可选叠加检测框+ETA 调试窗口，绿色统一显示 green_note；在 EASY 鲁棒谱面跟踪 end-to-end 延迟，标定 latency_offset。
+    content: 里程碑 7：src/bangdream_yolo/main.py 闭环主循环；viz/overlay.py 可选叠加检测框+ETA 调试窗口，绿色显示 green_note 与 green_bar；在 EASY 鲁棒谱面跟踪 end-to-end 延迟，标定 latency_offset。
     status: pending
   - id: m8_tune
-    content: 里程碑 8：PRO/EX 实战调优；bad case 帧按 4 类口径回流数据集并重训第二版；在 README 补上完整使用、标定、训练、及风险说明。
+    content: 里程碑 8：PRO/EX 实战调优；bad case 帧按 5 类口径回流数据集并重训第二版；在 README 补上完整使用、标定、训练、及风险说明。
     status: pending
 isProject: false
 ---
@@ -42,7 +42,7 @@ isProject: false
 - 截图：`nemu_ipc`（`external_renderer_ipc.dll`，低延迟、零拷贝 RGBA）
 - 触控：`minitouch` over ADB（多指必需，nemu_ipc 单点不够用）
 - 模型：Ultralytics YOLOv8（640 imgsz 训练，1280×720 推理）
-- 数据：手动录制抽样帧 + 手动标注 4 类 note（推荐 X-AnyLabeling / Roboflow）
+- 数据：手动录制抽样帧 + 手动标注 5 类 note（推荐 X-AnyLabeling / Roboflow）
 - 模拟器分辨率：1600×900（16:9，参考 autodori 推荐）；游戏内流速固定 8.0、关闭 3D 切入
 
 ## 数据流总览
@@ -91,20 +91,21 @@ BangDream_yolo/
 └── tests/
 ```
 
-## YOLO 类别（m3 第一版 4 类）
+## YOLO 类别（当前 5 类）
 
 - `tap`（普通单点 note）
 - `skill`（黄色/金色技能 note）
 - `flick`（粉色滑键，第一版不区分方向）
-- `green_note`（所有绿色长按/slide 实体节点；头尾语义由后续时序策略判断）
+- `green_note`（绿色长按/slide 实体节点；头尾语义由后续时序策略判断）
+- `green_bar`（绿色长按/slide 光带实体，用于按住位置跟随）
 
 ## 类别调整波及范围
 
-- m3 标注与 `dataset.yaml` 只保留 4 类。
-- m4 训练、评估和导出模型均以 4 类为准。
-- m5 postprocess/tracker 不读取绿色头尾类别，只接收 `green_note` 并估计 lane/ETA。
-- m6 policy 根据连续帧和 pointer 状态推断绿色 note 的按下、保持、移动、释放。
-- m7 overlay 调试显示 `green_note`，不显示绿色头尾分类。
+- m3 标注与 `dataset.yaml` 使用 5 类。
+- m4 训练、评估和导出模型均以 5 类为准。
+- m5 postprocess/tracker 接收 `green_note` 与 `green_bar` 并估计 lane/ETA。
+- m6 policy 使用 `green_bar` 按住/跟随，使用 `green_note` / `flick` 作为终点。
+- m7 overlay 调试显示 `green_note` 与 `green_bar`，不显示绿色头尾分类。
 - m0-m2 不受影响。
 
 ## 关键实现要点
@@ -114,7 +115,7 @@ BangDream_yolo/
 - **外置资源下载**：所有不进 Git 的外置资源（如 minitouch 二进制、后续模型权重、样例素材）统一接入 `python -m bangdream_yolo.tools.fetch_assets`。工具用 Python 标准库下载，按资源清单维护 URL、版本、许可证、目标路径和可选 SHA256；默认跳过已存在文件，支持 `--force` 覆盖。
 - **几何标定**：交互式选 4 点（判定线左/右，远端轨道左/右），求透视矩阵；7 lane 中心通过判定线段 8 等分得到。屏幕 note 中心 → 反投影 → lane id + 屏幕 X（最终下指 X 用判定线那一行的实际 X，避免透视偏移）。
 - **跟踪与 ETA**：按 lane 分桶，新框关联到上一帧最近 Y 且单调下落的 note；用最近 N 帧线性回归估 v_y(px/s)，ETA = (judge_y - y_now) / v_y。允许连续 ≤2 帧丢检续命。绿色 note 的头尾不依赖 YOLO 类别，由连续帧和 pointer 状态推断。
-- **多指调度**：pointer 池管理同时触点；tap/skill 完即归还；flick 比 tap 提前约 20ms 触发，按游戏画面向下滑约 100px，滑动过程约 50ms 后 up；green_note 根据连续帧和当前按住状态决定按下、保持、移动或释放。`latency_offset` 经验值 ~40ms（截图 + 推理 + minitouch RTT），首次跑分时校准。
+- **多指调度**：pointer 池管理同时触点；tap/skill 完即归还；flick 比 tap 提前约 20ms 触发，按游戏画面向下滑约 100px，滑动过程约 50ms 后 up；绿色长条由底部 `green_bar` 创建/跟随 held pointer，终点 `green_note` 释放，终点 `flick` 复用 held pointer 划出。`latency_offset` 经验值 ~40ms（截图 + 推理 + minitouch RTT），首次跑分时校准。
 - **延迟预期**：端到端 30~50ms。EASY/NORMAL/PRO 难度可稳定 AP，EX 大部分谱面能跑通但凹 AP 不现实，SP/凹榜禁止（封号风险）。
 
 ## 风险与限制

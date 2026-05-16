@@ -2,7 +2,7 @@
 
 ## 背景/目标
 
-本阶段对应主计划 `m5_tracker`。m4 已经产出第一版 4 类 YOLO 模型，并提供实时检测预览窗口；但当前输出仍只是单帧检测框，不能直接用于后续自动触控调度。
+本阶段对应主计划 `m5_tracker`。m4 已经产出 YOLO 模型并提供实时检测预览窗口；但当前输出仍只是单帧检测框，不能直接用于后续自动触控调度。
 
 目标是把 YOLO 检测框转换为可跨帧追踪的 note 实体：
 
@@ -26,7 +26,7 @@
 
 - 不调用 `minitouch`，不产生任何触控输入。
 - 不实现 m6 的 pointer 池、按下、保持、移动、释放调度。
-- 不把 `green_note` 区分为头、尾或 slide 节点；绿色 note 仍只作为统一类别追踪。
+- 不把 `green_note` 区分为头、尾或 slide 节点；`green_bar` 只作为绿色光带实体追踪。
 - 不引入复杂多目标追踪框架，不做卡尔曼滤波、匈牙利匹配等重型设计。
 - 不把 tracker 作为正式闭环主程序；m5 只提供调试预览和后续 m6 可调用的模块。
 
@@ -47,13 +47,14 @@
 1 skill
 2 flick
 3 green_note
+4 green_bar
 ```
 
 ### `NoteDetection`
 
 建议字段：
 
-- `note_type: str`：`tap` / `skill` / `flick` / `green_note`
+- `note_type: str`：`tap` / `skill` / `flick` / `green_note` / `green_bar`
 - `lane: int`：0 到 `lane_count - 1`
 - `bbox: tuple[float, float, float, float]`：`x1, y1, x2, y2`
 - `center_x: float`
@@ -186,11 +187,11 @@ eta_seconds = (1.0 - fitted_y_now) / velocity_y
 - 未匹配 track 的 `missed_frames += 1`；超过 `max_missed_frames = 2` 后标记为 inactive。
 - 已越过判定线较多的 track 可在 `track_y > 1.10` 后清理。
 
-绿色 note 处理：
+绿色处理：
 
-- `green_note` 只参与检测和追踪。
+- `green_note` 和 `green_bar` 只参与检测和追踪。
 - m5 不根据绿色连续帧推断按下/释放。
-- 后续 m6 根据 `green_note` 的 lane、ETA、连续存在状态和 pointer 状态判断动作语义。
+- 后续 m6 根据底部 `green_bar` 创建/跟随 green hold，并根据 `green_note` / `flick` 终点结束。
 
 ### 实时调试
 
@@ -227,7 +228,7 @@ python -m bangdream_yolo.tools.live_preview --device 0 --show-tracks
 - `--show-tracks` 开启且 `data/calibration.yml` 存在时，预览窗口能显示 lane、track_id、ETA。
 - 同一个下落 note 在连续帧中保持相同 `track_id`，偶发 1 到 2 帧漏检后仍可续命。
 - ETA 在 note 下落过程中整体递减，到判定线附近接近 0。
-- `tap`、`skill`、`flick`、`green_note` 都能被转换为 `NoteDetection`，绿色不再拆分头尾。
+- `tap`、`skill`、`flick`、`green_note`、`green_bar` 都能被转换为 `NoteDetection`，绿色不再拆分头尾。
 - 测试或验证脚本覆盖：
   - class id 到 note 类型映射；
   - 检测框中心点到 lane 映射；
