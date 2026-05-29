@@ -14,7 +14,7 @@ import numpy as np
 from bangdream_yolo.capture.nemu_ipc import NemuIpc, NemuIpcError
 from bangdream_yolo.config import load_config
 from bangdream_yolo.detection.postprocess import postprocess_detections
-from bangdream_yolo.geometry.calibration import DEFAULT_CALIBRATION_PATH, load_calibration
+from bangdream_yolo.geometry.calibration import load_calibration
 from bangdream_yolo.tracker.note_tracker import NoteTracker
 from bangdream_yolo.tracker.state import TrackedNote
 
@@ -203,26 +203,27 @@ def main() -> int:
     if os.name == "nt":
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+    config = load_config()
     parser = argparse.ArgumentParser(description="Live MuMu YOLO detection preview.")
-    parser.add_argument("--model", type=Path, default=Path("models/bangdream_yolo_m4_green_bar.pt"))
-    parser.add_argument("--conf", type=float, default=0.25, help="YOLO confidence threshold.")
-    parser.add_argument("--imgsz", type=int, default=640, help="YOLO inference image size.")
+    parser.add_argument("--model", type=Path, default=config.model_path)
+    parser.add_argument("--conf", type=float, default=config.conf, help="YOLO confidence threshold.")
+    parser.add_argument("--imgsz", type=int, default=config.imgsz, help="YOLO inference image size.")
     parser.add_argument(
         "--device",
-        default="auto",
+        default=config.device,
         help="Ultralytics device value. Use auto to let Ultralytics choose.",
     )
     parser.add_argument("--duration", type=float, default=0.0, help="Seconds to run; 0 means until quit.")
     parser.add_argument("--max-fps", type=float, default=0.0, help="Optional preview FPS cap.")
     parser.add_argument("--window-name", default="BangDream YOLO live preview")
-    parser.add_argument("--window-width", type=int, default=1280, help="Preview max width; 0 uses source width.")
-    parser.add_argument("--window-height", type=int, default=720, help="Preview max height; 0 uses source height.")
-    parser.add_argument("--topmost", action="store_true", help="Keep the OpenCV window on top.")
+    parser.add_argument("--window-width", type=int, default=config.window_width, help="Preview max width; 0 uses source width.")
+    parser.add_argument("--window-height", type=int, default=config.window_height, help="Preview max height; 0 uses source height.")
+    parser.add_argument("--topmost", action="store_true", default=config.topmost, help="Keep the OpenCV window on top.")
     parser.add_argument("--show-tracks", action="store_true", help="Show m5 lane/track/ETA debug overlay.")
     parser.add_argument(
         "--calibration",
         type=Path,
-        default=DEFAULT_CALIBRATION_PATH,
+        default=config.calibration_path,
         help="Calibration YAML path used by --show-tracks.",
     )
     args = parser.parse_args()
@@ -236,7 +237,6 @@ def main() -> int:
 
     YOLO = import_yolo()
     model = YOLO(str(args.model))
-    config = load_config()
     calibration = None
     tracker = None
     if args.show_tracks:

@@ -13,7 +13,7 @@ import cv2
 from bangdream_yolo.capture.nemu_ipc import NemuIpc, NemuIpcError
 from bangdream_yolo.config import load_config
 from bangdream_yolo.detection.postprocess import postprocess_detections
-from bangdream_yolo.geometry.calibration import DEFAULT_CALIBRATION_PATH, load_calibration
+from bangdream_yolo.geometry.calibration import load_calibration
 from bangdream_yolo.input.minitouch import MinitouchClient, MinitouchError
 from bangdream_yolo.policy.scheduler import (
     PolicyScheduler,
@@ -138,20 +138,26 @@ def main() -> int:
     if os.name == "nt":
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+    config = load_config()
     parser = argparse.ArgumentParser(description="Live BangDream ETA policy preview.")
-    parser.add_argument("--model", type=Path, default=Path("models/bangdream_yolo_m4_green_bar.pt"))
-    parser.add_argument("--calibration", type=Path, default=DEFAULT_CALIBRATION_PATH)
-    parser.add_argument("--conf", type=float, default=0.25, help="YOLO confidence threshold.")
-    parser.add_argument("--imgsz", type=int, default=640, help="YOLO inference image size.")
-    parser.add_argument("--device", default="auto", help="Ultralytics device value.")
+    parser.add_argument("--model", type=Path, default=config.model_path)
+    parser.add_argument("--calibration", type=Path, default=config.calibration_path)
+    parser.add_argument("--conf", type=float, default=config.conf, help="YOLO confidence threshold.")
+    parser.add_argument("--imgsz", type=int, default=config.imgsz, help="YOLO inference image size.")
+    parser.add_argument("--device", default=config.device, help="Ultralytics device value.")
     parser.add_argument("--duration", type=float, default=0.0, help="Seconds to run; 0 means until quit.")
     parser.add_argument("--max-fps", type=float, default=0.0, help="Optional preview FPS cap.")
     parser.add_argument("--window-name", default="BangDream YOLO policy preview")
-    parser.add_argument("--window-width", type=int, default=1280)
-    parser.add_argument("--window-height", type=int, default=720)
-    parser.add_argument("--topmost", action="store_true")
-    parser.add_argument("--dry-run", action="store_true", help="Explicit no-touch mode; this is the default.")
-    parser.add_argument("--enable-touch", action="store_true", help="Actually send minitouch actions.")
+    parser.add_argument("--window-width", type=int, default=config.window_width)
+    parser.add_argument("--window-height", type=int, default=config.window_height)
+    parser.add_argument("--topmost", action="store_true", default=config.topmost)
+    parser.add_argument("--dry-run", action="store_true", help="Force no-touch mode even when config enables touch.")
+    parser.add_argument(
+        "--enable-touch",
+        action="store_true",
+        default=config.enable_touch,
+        help="Actually send minitouch actions.",
+    )
     parser.add_argument("--latency-offset", type=float, default=0.040)
     parser.add_argument("--tap-hold-seconds", type=float, default=0.030)
     parser.add_argument("--flick-duration", type=float, default=0.050)
@@ -190,11 +196,10 @@ def main() -> int:
 
     YOLO = import_yolo()
     model = YOLO(str(args.model))
-    config = load_config()
     calibration = load_calibration(args.calibration)
     tracker = NoteTracker()
     scheduler = PolicyScheduler(lane_touch_map(calibration), build_scheduler_config(args))
-    touch_enabled = args.enable_touch
+    touch_enabled = args.enable_touch and not args.dry_run
 
     predict_kwargs = {
         "imgsz": args.imgsz,

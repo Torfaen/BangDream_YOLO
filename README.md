@@ -26,6 +26,36 @@
 
 ## 环境准备
 
+### 新用户最快启动
+
+本项目提供 Windows 一键启动脚本，适合 clone 后快速准备环境并启动：
+
+```powershell
+Copy-Item .\config.example.yml .\config.yml
+notepad .\config.yml
+```
+
+在 `config.yml` 中集中配置本机路径与启动参数，重点检查：
+
+- `mumu_path`：MuMu Player 12 安装根目录
+- `adb_serial`：目标模拟器 ADB serial，默认 `emulator-5554`
+- `model_path`：默认模型 `models/bangdream_yolo_m4_green_bar.pt`
+- `calibration_path`：标定文件，默认 `data/calibration.yml`
+- `asset_abi`：MuMu Player 12 常用 `x86_64`
+- `enable_touch`：`true` 会真实发送 minitouch 触控事件
+
+确认 MuMu 实例和游戏画面已启动后，双击根目录的 `一键启动.bat`。脚本会自动创建 `.venv`、安装依赖、安装本项目、下载 `minitouch`、运行环境检查，并按 `config.yml` 启动。
+
+首次真实触控前建议先运行单点测试，确认 minitouch 后端可用：
+
+```powershell
+.\.venv\Scripts\python.exe -m bangdream_yolo.tools.test_multitouch --single
+```
+
+如需只看识别窗口、不触控，可把 `config.yml` 中的 `mode` 改为 `live_preview`，或把 `enable_touch` 改为 `false`。
+
+### 手动准备
+
 建议使用 Python 3.11：
 
 ```powershell
@@ -117,7 +147,7 @@ python -m bangdream_yolo.tools.split_dataset `
 python -m bangdream_yolo.tools.train --epochs 1 --name m4_smoke_e1
 ```
 
-正式训练可改用 `--model yolov8s.pt --epochs 50`，并用 `--copy-best models/bangdream_yolo_m4_green_bar.pt` 保存 best 权重。GPU 训练需要当前 Python 环境安装 CUDA 版 PyTorch，可用 `--device 0` 强制使用第 0 张显卡。`runs/` 和 `models/` 不提交到 Git。
+正式训练可改用 `--model yolov8s.pt --epochs 50`，并用 `--copy-best models/bangdream_yolo_m4_green_bar.pt` 保存 best 权重。GPU 训练需要当前 Python 环境安装 CUDA 版 PyTorch，可用 `--device 0` 强制使用第 0 张显卡。`runs/` 不提交到 Git；仓库已包含当前默认运行所需的 `models/` 权重。
 
 当前实时预览和策略预览默认使用 5 类 green_bar 模型：`models/bangdream_yolo_m4_green_bar.pt`；如需临时回退 flick 旧模型，可显式传 `--model models/bangdream_yolo_m4_flick.pt`。
 

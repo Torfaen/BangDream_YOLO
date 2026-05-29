@@ -168,9 +168,9 @@ def main() -> int:
 
     config = load_config()
     root = project_root()
-    abi = args.abi or read_device_abi(config.mumu_path, config.adb_serial)
+    abi = args.abi or config.asset_abi or read_device_abi(config.mumu_path, config.adb_serial)
     if abi is None:
-        print("无法自动读取设备 ABI，请手动指定，例如：--abi x86_64")
+        print("无法自动读取设备 ABI，请手动指定，例如：--abi x86_64，或在 config.yml 中设置 asset_abi: x86_64")
         return 1
 
     print("BangDream YOLO 外置资源下载")

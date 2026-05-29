@@ -1,0 +1,27 @@
+# Copy this file to config.yml and edit the values for your machine.
+
+mumu_path: "C:\\Program Files\\Netease\\MuMu"
+adb_serial: "emulator-5554"
+instance_id: 0
+display_id: 0
+
+screen_width: 1280
+screen_height: 720
+
+model_path: "models/bangdream_yolo_m4_green_bar.pt"
+calibration_path: "data/calibration.yml"
+
+minitouch_port:
+minitouch_remote_path: "/data/local/tmp/minitouch"
+
+# MuMu Player 12 on Windows is usually x86_64. Leave empty to auto-detect through ADB.
+asset_abi: "x86_64"
+
+mode: "policy_preview"
+enable_touch: true
+device: "auto"
+conf: 0.25
+imgsz: 640
+window_width: 1280
+window_height: 720
+topmost: true
